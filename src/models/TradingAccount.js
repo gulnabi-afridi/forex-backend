@@ -69,4 +69,6 @@ tradingAccountSchema.virtual("user", {
   justOne: true,
 });
 
-module.exports = mongoose.model("TradingAccount", tradingAccountSchema);
+
+export default mongoose.model("TradingAccount", tradingAccountSchema);
+

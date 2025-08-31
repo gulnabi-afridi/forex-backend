@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { loginUser } from "./controllers/authController.js";
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 
@@ -8,17 +8,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const router = express.Router();
-
-// Routes
-router.post("/login", loginUser);
-
-// Mount router
-app.use("/", router);
+app.use("/api/auth", authRoutes);
 
 // Default
 app.get("/", (req, res) => {
   res.send("API is running...");
+});
+
+// error handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Something went wrong!" });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
 });
 
 export { app };
