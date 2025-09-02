@@ -7,7 +7,7 @@ import {
   checkConnectionStatus,
   getAccountPositions,
   getAccountClosedOrders,
-  getAccountOrders,
+  getOrderHistory,
 } from "../controllers/accountController.js";
 import { authMiddleware } from "../middlewares/auth.js";
 
@@ -20,7 +20,7 @@ router.get("/", getUserAccounts);
 router.get("/:accountNumber", getAccountById);
 router.get("/:accountNumber/positions", getAccountPositions);
 router.get("/:accountNumber/closePositions", getAccountClosedOrders);
-router.get("/:accountNumber/orders", getAccountOrders);
+router.get("/:accountNumber/history", getOrderHistory);
 router.put("/:accountNumber/status", checkConnectionStatus);
 router.delete("/:accountNumber", deleteAccount);
 

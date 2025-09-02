@@ -97,13 +97,20 @@ export const mtapiService = {
     }
   },
 
-  // ✅ Get Orders (Active Orders)
-  async getOrders(mtapiId, platform) {
+  //  ✅ Order History!
+  async getOrderHistory(mtapiId, platform, fromDate, toDate) {
     try {
       const client = createMtapiClient(platform);
-      const response = await client.get("/Orders", {
-        params: { id: mtapiId },
+      const response = await client.get("/OrderHistory", {
+        params: {
+          id: mtapiId,
+          from: fromDate,
+          to: toDate,
+          sort: "CloseTime",
+          ascending: false,
+        },
       });
+
       return { success: true, data: response.data };
     } catch (error) {
       return {
