@@ -26,8 +26,8 @@ const tradingAccountSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    // MetaAPI Integration
-    metaApiAccountId: {
+    // MTAPI Integration
+    mtapiId: {
       type: String,
       default: null,
     },
@@ -43,6 +43,7 @@ const tradingAccountSchema = new mongoose.Schema(
       margin: { type: Number, default: 0 },
       freeMargin: { type: Number, default: 0 },
       currency: { type: String, default: "USD" },
+      leverage: { type: Number, default: 100 },
     },
     lastSyncAt: {
       type: Date,
@@ -69,6 +70,4 @@ tradingAccountSchema.virtual("user", {
   justOne: true,
 });
 
-
 export default mongoose.model("TradingAccount", tradingAccountSchema);
-

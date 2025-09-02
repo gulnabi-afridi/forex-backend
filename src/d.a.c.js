@@ -52,11 +52,7 @@ export const addAccount = async (req, res) => {
       });
     }
 
-    // The MTAPI returns an id/token that we use for subsequent requests
-    const mtapiId =
-      connectionResult.data.id ||
-      connectionResult.data.token ||
-      connectionResult.data;
+    const mtapiId = connectionResult.data.id || connectionResult.data.accountId;
 
     // 4. Save account to database
     const newAccount = new TradingAccount({
@@ -83,7 +79,7 @@ export const addAccount = async (req, res) => {
           balance: accountInfo.balance || 0,
           equity: accountInfo.equity || 0,
           margin: accountInfo.margin || 0,
-          freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
+          freeMargin: accountInfo.freeMargin || 0,
           currency: accountInfo.currency || "USD",
           leverage: accountInfo.leverage || 100,
         };
@@ -161,7 +157,7 @@ export const getAccountById = async (req, res) => {
 
     // Find account by accountNumber (not _id)
     const account = await TradingAccount.findOne({
-      accountNumber: accountNumber,
+      accountNumber: accountNumber, // Search by accountNumber field
       userId: userId,
       isActive: true,
     }).select("-password");
@@ -180,8 +176,7 @@ export const getAccountById = async (req, res) => {
     if (account.mtapiId && account.connectionStatus === "connected") {
       try {
         const accountInfoResult = await mtapiService.getAccountInfo(
-          account.mtapiId,
-          account.platform
+          account.mtapiId
         );
         if (accountInfoResult.success) {
           const accountInfo = accountInfoResult.data;
@@ -189,7 +184,7 @@ export const getAccountById = async (req, res) => {
             balance: accountInfo.balance || 0,
             equity: accountInfo.equity || 0,
             margin: accountInfo.margin || 0,
-            freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
+            freeMargin: accountInfo.freeMargin || 0,
             currency: accountInfo.currency || "USD",
             leverage: accountInfo.leverage || 100,
           };
@@ -227,166 +222,6 @@ export const getAccountById = async (req, res) => {
   }
 };
 
-// GET ACCOUNT POSITIONS
-export const getAccountPositions = async (req, res) => {
-  try {
-    const { accountNumber } = req.params;
-    const userId = req.user.id;
-
-    const account = await TradingAccount.findOne({
-      accountNumber: accountNumber,
-      userId: userId,
-      isActive: true,
-    });
-
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: "Account not found",
-      });
-    }
-
-    if (!account.mtapiId || account.connectionStatus !== "connected") {
-      return res.status(400).json({
-        success: false,
-        message: "Account is not connected",
-      });
-    }
-
-    const positionsResult = await mtapiService.getOpenPositions(
-      account.mtapiId,
-      account.platform
-    );
-
-    if (!positionsResult.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to fetch positions",
-        error: positionsResult.error,
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: positionsResult.data,
-    });
-  } catch (error) {
-    console.error("❌ Get Positions Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch positions",
-    });
-  }
-};
-
-// Get Close Orders -------->
-
-export const getAccountClosedOrders = async (req, res) => {
-  try {
-    const { accountNumber } = req.params;
-    const userId = req.user.id;
-
-    const account = await TradingAccount.findOne({
-      accountNumber,
-      userId,
-      isActive: true,
-    });
-
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: "Account not found",
-      });
-    }
-
-    if (!account.mtapiId || account.connectionStatus !== "connected") {
-      return res.status(400).json({
-        success: false,
-        message: "Account is not connected to MTAPI",
-      });
-    }
-
-    const closedOrdersResult = await mtapiService.getClosedOrders(
-      account.mtapiId,
-      account.platform
-    );
-
-    if (!closedOrdersResult.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to fetch closed orders",
-        error: closedOrdersResult.error,
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: closedOrdersResult.data,
-    });
-  } catch (error) {
-    console.error("❌ Get Closed Orders Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch closed orders",
-    });
-  }
-};
-
-// still having issues ---------------------------->
-// GET ACCOUNT ORDERS
-export const getAccountOrders = async (req, res) => {
-  try {
-    const { accountNumber } = req.params;
-    const userId = req.user.id;
-
-    const account = await TradingAccount.findOne({
-      accountNumber: accountNumber,
-      userId: userId,
-      isActive: true,
-    });
-
-    if (!account) {
-      return res.status(404).json({
-        success: false,
-        message: "Account not found",
-      });
-    }
-
-    if (!account.mtapiId || account.connectionStatus !== "connected") {
-      return res.status(400).json({
-        success: false,
-        message: "Account is not connected",
-      });
-    }
-
-    const ordersResult = await mtapiService.getOrders(
-      account.mtapiId,
-      account.platform
-    );
-
-    if (!ordersResult.success) {
-      return res.status(500).json({
-        success: false,
-        message: "Failed to fetch orders",
-        error: ordersResult.error,
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: ordersResult.data,
-    });
-  } catch (error) {
-    console.error("❌ Get Orders Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch orders",
-    });
-  }
-};
-
-
-
 // DELETE ACCOUNT
 export const deleteAccount = async (req, res) => {
   try {
@@ -412,7 +247,7 @@ export const deleteAccount = async (req, res) => {
     // Disconnect from MTAPI
     if (account.mtapiId) {
       try {
-        await mtapiService.disconnectAccount(account.mtapiId, account.platform);
+        await mtapiService.disconnectAccount(account.mtapiId);
         console.log("✅ Account disconnected from MTAPI");
       } catch (mtapiError) {
         console.error("⚠️ MTAPI disconnect error:", mtapiError);
@@ -437,13 +272,13 @@ export const deleteAccount = async (req, res) => {
 };
 
 // UPDATE ACCOUNT CONNECTION STATUS
-export const checkConnectionStatus = async (req, res) => {
+export const updateConnectionStatus = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { accountId } = req.params;
     const userId = req.user.id;
 
     const account = await TradingAccount.findOne({
-      accountNumber: accountNumber,
+      _id: accountId,
       userId: userId,
       isActive: true,
     });
@@ -465,20 +300,20 @@ export const checkConnectionStatus = async (req, res) => {
     // Check connection status
     try {
       const statusResult = await mtapiService.getConnectionStatus(
-        account.mtapiId,
-        account.platform
+        account.mtapiId
       );
 
       if (statusResult.success) {
-        const status = statusResult.data ? "connected" : "disconnected";
-
+        const status = statusResult.data.connected
+          ? "connected"
+          : "disconnected";
         account.connectionStatus = status;
         await account.save();
 
-        return res.status(200).json({
+        res.status(200).json({
           success: true,
           data: {
-            accountNumber,
+            accountId: accountId,
             connectionStatus: status,
             lastChecked: new Date(),
           },
@@ -487,10 +322,10 @@ export const checkConnectionStatus = async (req, res) => {
         account.connectionStatus = "error";
         await account.save();
 
-        return res.status(200).json({
+        res.status(200).json({
           success: true,
           data: {
-            accountNumber,
+            accountId: accountId,
             connectionStatus: "error",
             error: statusResult.error,
           },
@@ -500,7 +335,7 @@ export const checkConnectionStatus = async (req, res) => {
       account.connectionStatus = "error";
       await account.save();
 
-      return res.status(500).json({
+      res.status(500).json({
         success: false,
         message: "Failed to check connection status",
         error: error.message,
@@ -508,7 +343,7 @@ export const checkConnectionStatus = async (req, res) => {
     }
   } catch (error) {
     console.error("❌ Connection Status Error:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to check connection status",
     });
