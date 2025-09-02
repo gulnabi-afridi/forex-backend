@@ -1,4 +1,5 @@
 import axios from "axios";
+import { generate64BitId } from "../utils/generate64BitId.js";
 
 const createMtapiClient = (platform) =>
   axios.create({
@@ -23,7 +24,8 @@ export const mtapiService = {
           user: accountNumber,
           password: password,
           server: serverName,
-          id: `account-${accountNumber}`,
+          // id: `account-${accountNumber}`,
+          id: generate64BitId().toString(),
         },
         headers: {
           Accept: "text/plain",

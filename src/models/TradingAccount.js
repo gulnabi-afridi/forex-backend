@@ -36,19 +36,19 @@ const tradingAccountSchema = new mongoose.Schema(
       enum: ["pending", "connected", "disconnected", "error"],
       default: "pending",
     },
-    // Account Stats Cache
     accountStats: {
       balance: { type: Number, default: 0 },
       equity: { type: Number, default: 0 },
+      profit: { type: Number, default: 0 },
       margin: { type: Number, default: 0 },
       freeMargin: { type: Number, default: 0 },
       currency: { type: String, default: "USD" },
       leverage: { type: Number, default: 100 },
+      lastPrice: { type: Number, default: null },
+      marginLevel: { type: Number, default: null },
     },
-    lastSyncAt: {
-      type: Date,
-      default: null,
-    },
+
+    // Account Management
     isActive: {
       type: Boolean,
       default: true,
@@ -61,6 +61,14 @@ const tradingAccountSchema = new mongoose.Schema(
 
 // Prevent duplicate accounts for same user
 tradingAccountSchema.index({ userId: 1, accountNumber: 1 }, { unique: true });
+
+// Index for efficient sync queries
+tradingAccountSchema.index({
+  userId: 1,
+  isActive: 1,
+  connectionStatus: 1,
+  lastSyncAt: 1,
+});
 
 // Virtual to populate user info
 tradingAccountSchema.virtual("user", {

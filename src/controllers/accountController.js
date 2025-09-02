@@ -1,5 +1,6 @@
 import TradingAccount from "../models/TradingAccount.js";
 import { mtapiService } from "../services/mtapiService.js";
+import OrderHistory from "../models/orderHistorySchema.js";
 
 // Helper function to ensure account is connected
 const ensureAccountConnection = async (account) => {
@@ -15,7 +16,6 @@ const ensureAccountConnection = async (account) => {
       account.platform
     );
 
-
     if (statusResult.success && statusResult.data) {
       // Account is connected
       if (account.connectionStatus !== "connected") {
@@ -28,7 +28,7 @@ const ensureAccountConnection = async (account) => {
 
     // Account is disconnected, try to reconnect
     console.log("🔄 Account disconnected, attempting to reconnect...");
-    
+
     const reconnectResult = await mtapiService.connectAccount({
       accountNumber: account.accountNumber,
       password: account.password,
@@ -38,14 +38,15 @@ const ensureAccountConnection = async (account) => {
 
     if (reconnectResult.success) {
       // Update mtapiId in case it changed
-      const newMtapiId = reconnectResult.data.id || 
-                        reconnectResult.data.token || 
-                        reconnectResult.data;
-      
+      const newMtapiId =
+        reconnectResult.data.id ||
+        reconnectResult.data.token ||
+        reconnectResult.data;
+
       account.mtapiId = newMtapiId;
       account.connectionStatus = "connected";
       await account.save();
-      
+
       console.log("✅ Account reconnected successfully");
       return { success: true, connected: true };
     }
@@ -53,22 +54,21 @@ const ensureAccountConnection = async (account) => {
     // Failed to reconnect
     account.connectionStatus = "disconnected";
     await account.save();
-    
-    return { 
-      success: false, 
-      connected: false, 
-      error: "Failed to reconnect account" 
-    };
 
+    return {
+      success: false,
+      connected: false,
+      error: "Failed to reconnect account",
+    };
   } catch (error) {
     console.error("❌ Connection check error:", error);
     account.connectionStatus = "error";
     await account.save();
-    
-    return { 
-      success: false, 
-      connected: false, 
-      error: error.message 
+
+    return {
+      success: false,
+      connected: false,
+      error: error.message,
     };
   }
 };
@@ -155,6 +155,7 @@ export const addAccount = async (req, res) => {
           balance: accountInfo.balance || 0,
           equity: accountInfo.equity || 0,
           margin: accountInfo.margin || 0,
+          profit: accountInfo.profit || 0,
           freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
           currency: accountInfo.currency || "USD",
           leverage: accountInfo.leverage || 100,
@@ -217,7 +218,7 @@ export const getUserAccounts = async (req, res) => {
   }
 };
 
-// GET SPECIFIC ACCOUNT DETAILS 
+// GET SPECIFIC ACCOUNT DETAILS
 export const getAccountById = async (req, res) => {
   try {
     const { accountNumber } = req.params;
@@ -249,7 +250,7 @@ export const getAccountById = async (req, res) => {
 
     // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
     const connectionCheck = await ensureAccountConnection(account);
-    
+
     if (!connectionCheck.success) {
       return res.status(400).json({
         success: false,
@@ -271,7 +272,7 @@ export const getAccountById = async (req, res) => {
         account.mtapiId,
         account.platform
       );
-      
+
       if (accountInfoResult.success) {
         const accountInfo = accountInfoResult.data;
         liveData = {
@@ -316,7 +317,7 @@ export const getAccountById = async (req, res) => {
   }
 };
 
-// GET OPEN POSITIONS 
+// GET OPEN POSITIONS
 export const getAccountPositions = async (req, res) => {
   try {
     const { accountNumber } = req.params;
@@ -337,7 +338,7 @@ export const getAccountPositions = async (req, res) => {
 
     // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
     const connectionCheck = await ensureAccountConnection(account);
-    
+
     if (!connectionCheck.success) {
       return res.status(400).json({
         success: false,
@@ -374,7 +375,7 @@ export const getAccountPositions = async (req, res) => {
   }
 };
 
-// GET CLOSED ORDERS 
+// GET CLOSED ORDERS
 export const getAccountClosedOrders = async (req, res) => {
   try {
     const { accountNumber } = req.params;
@@ -395,7 +396,7 @@ export const getAccountClosedOrders = async (req, res) => {
 
     // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
     const connectionCheck = await ensureAccountConnection(account);
-    
+
     if (!connectionCheck.success) {
       return res.status(400).json({
         success: false,
@@ -432,15 +433,17 @@ export const getAccountClosedOrders = async (req, res) => {
   }
 };
 
+
 // GET ORDER HISTORY (Last 30 days)
 export const getOrderHistory = async (req, res) => {
   try {
     const { accountNumber } = req.params;
     const userId = req.user.id;
 
+    // 1. Find the trading account
     const account = await TradingAccount.findOne({
-      accountNumber: accountNumber,
-      userId: userId,
+      accountNumber,
+      userId,
       isActive: true,
     });
 
@@ -451,9 +454,8 @@ export const getOrderHistory = async (req, res) => {
       });
     }
 
-    // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
+    // 2. Check account connection
     const connectionCheck = await ensureAccountConnection(account);
-    
     if (!connectionCheck.success) {
       return res.status(400).json({
         success: false,
@@ -463,16 +465,14 @@ export const getOrderHistory = async (req, res) => {
       });
     }
 
-    // Calculate date range for last 30 days
+    // 3. Date range (last 30 days)
     const toDate = new Date();
     const fromDate = new Date();
     fromDate.setDate(fromDate.getDate() - 30);
 
-    // Format dates for MTAPI (yyyy-MM-ddTHH:mm:ss)
-    const formatDate = (date) => {
-      return date.toISOString().slice(0, 19);
-    };
+    const formatDate = (date) => date.toISOString().slice(0, 19);
 
+    // 4. Fetch order history from MTAPI
     const orderHistoryResult = await mtapiService.getOrderHistory(
       account.mtapiId,
       account.platform,
@@ -488,10 +488,62 @@ export const getOrderHistory = async (req, res) => {
       });
     }
 
+    const orders = orderHistoryResult.data.orders || orderHistoryResult.data;
+
+    // 5. Save/merge into DB (single document per account)
+    let history = await OrderHistory.findOne({ accountId: account._id });
+
+    if (!history) {
+      // Create new document
+      history = await OrderHistory.create({
+        accountId: account._id,
+        data: orders.map((order) => ({
+          ticket: order.ticket,
+          symbol: order.symbol,
+          type: order.type,
+          volume: order.volume,
+          openTime: new Date(order.openTime),
+          closeTime: order.closeTime ? new Date(order.closeTime) : null,
+          openPrice: order.openPrice,
+          closePrice: order.closePrice,
+          profit: order.profit,
+          commission: order.commission,
+          swap: order.swap,
+          rawData: order,
+        })),
+      });
+    } else {
+      // Merge new orders (skip duplicates)
+      const existingTickets = new Set(history.data.map((o) => o.ticket));
+      const newOrders = orders
+        .filter((order) => !existingTickets.has(order.ticket))
+        .map((order) => ({
+          ticket: order.ticket,
+          symbol: order.symbol,
+          type: order.type,
+          volume: order.volume,
+          openTime: new Date(order.openTime),
+          closeTime: order.closeTime ? new Date(order.closeTime) : null,
+          openPrice: order.openPrice,
+          closePrice: order.closePrice,
+          profit: order.profit,
+          commission: order.commission,
+          swap: order.swap,
+          rawData: order,
+        }));
+
+      if (newOrders.length > 0) {
+        history.data.push(...newOrders);
+        await history.save();
+      }
+    }
+
+    // 6. Response
     res.status(200).json({
       success: true,
-      message: "Order history fetched successfully",
-      data: orderHistoryResult.data,
+      message: "Order history synced & stored successfully",
+      count: orders.length,
+      data: orders,
       dateRange: {
         from: formatDate(fromDate),
         to: formatDate(toDate),
@@ -502,7 +554,7 @@ export const getOrderHistory = async (req, res) => {
     console.error("❌ Get Order History Error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to fetch order history",
+      message: "Failed to fetch/store order history",
     });
   }
 };

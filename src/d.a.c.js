@@ -1,6 +1,77 @@
 import TradingAccount from "../models/TradingAccount.js";
 import { mtapiService } from "../services/mtapiService.js";
 
+// Helper function to ensure account is connected
+const ensureAccountConnection = async (account) => {
+  try {
+    // If no mtapiId, account was never connected
+    if (!account.mtapiId) {
+      throw new Error("Account was never connected to MTAPI");
+    }
+
+    // Check current connection status
+    const statusResult = await mtapiService.getConnectionStatus(
+      account.mtapiId,
+      account.platform
+    );
+
+    if (statusResult.success && statusResult.data) {
+      // Account is connected
+      if (account.connectionStatus !== "connected") {
+        account.connectionStatus = "connected";
+        await account.save();
+        console.log("✅ Account connection status updated to connected");
+      }
+      return { success: true, connected: true };
+    }
+
+    // Account is disconnected, try to reconnect
+    console.log("🔄 Account disconnected, attempting to reconnect...");
+
+    const reconnectResult = await mtapiService.connectAccount({
+      accountNumber: account.accountNumber,
+      password: account.password,
+      serverName: account.serverName,
+      platform: account.platform,
+    });
+
+    if (reconnectResult.success) {
+      // Update mtapiId in case it changed
+      const newMtapiId =
+        reconnectResult.data.id ||
+        reconnectResult.data.token ||
+        reconnectResult.data;
+
+      account.mtapiId = newMtapiId;
+      account.connectionStatus = "connected";
+      await account.save();
+
+      console.log("✅ Account reconnected successfully");
+      return { success: true, connected: true };
+    }
+
+    // Failed to reconnect
+    account.connectionStatus = "disconnected";
+    await account.save();
+
+    return {
+      success: false,
+      connected: false,
+      error: "Failed to reconnect account",
+    };
+  } catch (error) {
+    console.error("❌ Connection check error:", error);
+    account.connectionStatus = "error";
+    await account.save();
+
+    return {
+      success: false,
+      connected: false,
+      error: error.message,
+    };
+  }
+};
+
 // ADD NEW TRADING ACCOUNT
 export const addAccount = async (req, res) => {
   try {
@@ -52,7 +123,11 @@ export const addAccount = async (req, res) => {
       });
     }
 
-    const mtapiId = connectionResult.data.id || connectionResult.data.accountId;
+    // The MTAPI returns an id/token that we use for subsequent requests
+    const mtapiId =
+      connectionResult.data.id ||
+      connectionResult.data.token ||
+      connectionResult.data;
 
     // 4. Save account to database
     const newAccount = new TradingAccount({
@@ -79,7 +154,8 @@ export const addAccount = async (req, res) => {
           balance: accountInfo.balance || 0,
           equity: accountInfo.equity || 0,
           margin: accountInfo.margin || 0,
-          freeMargin: accountInfo.freeMargin || 0,
+          profit: accountInfo.profit || 0,
+          freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
           currency: accountInfo.currency || "USD",
           leverage: accountInfo.leverage || 100,
         };
@@ -157,7 +233,7 @@ export const getAccountById = async (req, res) => {
 
     // Find account by accountNumber (not _id)
     const account = await TradingAccount.findOne({
-      accountNumber: accountNumber, // Search by accountNumber field
+      accountNumber: accountNumber,
       userId: userId,
       isActive: true,
     }).select("-password");
@@ -171,39 +247,55 @@ export const getAccountById = async (req, res) => {
       });
     }
 
-    // Get live account data from MTAPI if connected
+    // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
+    const connectionCheck = await ensureAccountConnection(account);
+
+    if (!connectionCheck.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Account connection failed",
+        connectionError: connectionCheck.error,
+        data: {
+          ...account.toObject(),
+          liveStats: account.accountStats, // Return cached data
+          connectionStatus: account.connectionStatus,
+          lastAttempt: new Date(),
+        },
+      });
+    }
+
+    // Get live account data from MTAPI (connection is now ensured)
     let liveData = null;
-    if (account.mtapiId && account.connectionStatus === "connected") {
-      try {
-        const accountInfoResult = await mtapiService.getAccountInfo(
-          account.mtapiId
-        );
-        if (accountInfoResult.success) {
-          const accountInfo = accountInfoResult.data;
-          liveData = {
-            balance: accountInfo.balance || 0,
-            equity: accountInfo.equity || 0,
-            margin: accountInfo.margin || 0,
-            freeMargin: accountInfo.freeMargin || 0,
-            currency: accountInfo.currency || "USD",
-            leverage: accountInfo.leverage || 100,
-          };
+    try {
+      const accountInfoResult = await mtapiService.getAccountInfo(
+        account.mtapiId,
+        account.platform
+      );
 
-          // Update cached stats
-          account.accountStats = liveData;
-          account.lastSyncAt = new Date();
-          await account.save();
+      if (accountInfoResult.success) {
+        const accountInfo = accountInfoResult.data;
+        liveData = {
+          balance: accountInfo.balance || 0,
+          equity: accountInfo.equity || 0,
+          margin: accountInfo.margin || 0,
+          freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
+          currency: accountInfo.currency || "USD",
+          leverage: accountInfo.leverage || 100,
+        };
 
-          console.log("✅ Live data fetched for account:", accountNumber);
-        } else {
-          liveData = account.accountStats; // Use cached data
-        }
-      } catch (mtapiError) {
-        console.error("⚠️ MTAPI fetch error:", mtapiError);
+        // Update cached stats
+        account.accountStats = liveData;
+        account.lastSyncAt = new Date();
+        await account.save();
+
+        console.log("✅ Live data fetched for account:", accountNumber);
+      } else {
         liveData = account.accountStats; // Use cached data
+        console.log("⚠️ Using cached data due to MTAPI error");
       }
-    } else {
-      liveData = account.accountStats;
+    } catch (mtapiError) {
+      console.error("⚠️ MTAPI fetch error:", mtapiError);
+      liveData = account.accountStats; // Use cached data
     }
 
     res.status(200).json({
@@ -211,6 +303,8 @@ export const getAccountById = async (req, res) => {
       data: {
         ...account.toObject(),
         liveStats: liveData,
+        connectionVerified: true,
+        lastSyncAt: account.lastSyncAt,
       },
     });
   } catch (error) {
@@ -218,6 +312,197 @@ export const getAccountById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch account details",
+    });
+  }
+};
+
+// GET OPEN POSITIONS
+export const getAccountPositions = async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const userId = req.user.id;
+
+    const account = await TradingAccount.findOne({
+      accountNumber: accountNumber,
+      userId: userId,
+      isActive: true,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
+    const connectionCheck = await ensureAccountConnection(account);
+
+    if (!connectionCheck.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Account connection failed",
+        connectionError: connectionCheck.error,
+        data: [],
+      });
+    }
+
+    const positionsResult = await mtapiService.getOpenPositions(
+      account.mtapiId,
+      account.platform
+    );
+
+    if (!positionsResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch positions",
+        error: positionsResult.error,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: positionsResult.data,
+      connectionVerified: true,
+    });
+  } catch (error) {
+    console.error("❌ Get Positions Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch positions",
+    });
+  }
+};
+
+// GET CLOSED ORDERS
+export const getAccountClosedOrders = async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const userId = req.user.id;
+
+    const account = await TradingAccount.findOne({
+      accountNumber,
+      userId,
+      isActive: true,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
+    const connectionCheck = await ensureAccountConnection(account);
+
+    if (!connectionCheck.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Account connection failed",
+        connectionError: connectionCheck.error,
+        data: [],
+      });
+    }
+
+    const closedOrdersResult = await mtapiService.getClosedOrders(
+      account.mtapiId,
+      account.platform
+    );
+
+    if (!closedOrdersResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch closed orders",
+        error: closedOrdersResult.error,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: closedOrdersResult.data,
+      connectionVerified: true,
+    });
+  } catch (error) {
+    console.error("❌ Get Closed Orders Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch closed orders",
+    });
+  }
+};
+
+// GET ORDER HISTORY (Last 30 days)
+export const getOrderHistory = async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const userId = req.user.id;
+
+    const account = await TradingAccount.findOne({
+      accountNumber: accountNumber,
+      userId: userId,
+      isActive: true,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    // CHECK AND ENSURE CONNECTION BEFORE PROCEEDING
+    const connectionCheck = await ensureAccountConnection(account);
+
+    if (!connectionCheck.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Account connection failed",
+        connectionError: connectionCheck.error,
+        data: [],
+      });
+    }
+
+    // Calculate date range for last 30 days
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - 30);
+
+    // Format dates for MTAPI (yyyy-MM-ddTHH:mm:ss)
+    const formatDate = (date) => {
+      return date.toISOString().slice(0, 19);
+    };
+
+    const orderHistoryResult = await mtapiService.getOrderHistory(
+      account.mtapiId,
+      account.platform,
+      formatDate(fromDate),
+      formatDate(toDate)
+    );
+
+    if (!orderHistoryResult.success) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch order history",
+        error: orderHistoryResult.error,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Order history fetched successfully",
+      data: orderHistoryResult.data,
+      dateRange: {
+        from: formatDate(fromDate),
+        to: formatDate(toDate),
+      },
+      connectionVerified: true,
+    });
+  } catch (error) {
+    console.error("❌ Get Order History Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch order history",
     });
   }
 };
@@ -247,7 +532,7 @@ export const deleteAccount = async (req, res) => {
     // Disconnect from MTAPI
     if (account.mtapiId) {
       try {
-        await mtapiService.disconnectAccount(account.mtapiId);
+        await mtapiService.disconnectAccount(account.mtapiId, account.platform);
         console.log("✅ Account disconnected from MTAPI");
       } catch (mtapiError) {
         console.error("⚠️ MTAPI disconnect error:", mtapiError);
@@ -272,13 +557,13 @@ export const deleteAccount = async (req, res) => {
 };
 
 // UPDATE ACCOUNT CONNECTION STATUS
-export const updateConnectionStatus = async (req, res) => {
+export const checkConnectionStatus = async (req, res) => {
   try {
-    const { accountId } = req.params;
+    const { accountNumber } = req.params;
     const userId = req.user.id;
 
     const account = await TradingAccount.findOne({
-      _id: accountId,
+      accountNumber: accountNumber,
       userId: userId,
       isActive: true,
     });
@@ -297,53 +582,33 @@ export const updateConnectionStatus = async (req, res) => {
       });
     }
 
-    // Check connection status
-    try {
-      const statusResult = await mtapiService.getConnectionStatus(
-        account.mtapiId
-      );
+    // Use the enhanced connection check
+    const connectionResult = await ensureAccountConnection(account);
 
-      if (statusResult.success) {
-        const status = statusResult.data.connected
-          ? "connected"
-          : "disconnected";
-        account.connectionStatus = status;
-        await account.save();
-
-        res.status(200).json({
-          success: true,
-          data: {
-            accountId: accountId,
-            connectionStatus: status,
-            lastChecked: new Date(),
-          },
-        });
-      } else {
-        account.connectionStatus = "error";
-        await account.save();
-
-        res.status(200).json({
-          success: true,
-          data: {
-            accountId: accountId,
-            connectionStatus: "error",
-            error: statusResult.error,
-          },
-        });
-      }
-    } catch (error) {
-      account.connectionStatus = "error";
-      await account.save();
-
-      res.status(500).json({
-        success: false,
-        message: "Failed to check connection status",
-        error: error.message,
+    if (connectionResult.success) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          accountNumber,
+          connectionStatus: "connected",
+          lastChecked: new Date(),
+          reconnected: connectionResult.reconnected || false,
+        },
+      });
+    } else {
+      return res.status(200).json({
+        success: true,
+        data: {
+          accountNumber,
+          connectionStatus: account.connectionStatus,
+          error: connectionResult.error,
+          lastChecked: new Date(),
+        },
       });
     }
   } catch (error) {
     console.error("❌ Connection Status Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to check connection status",
     });
