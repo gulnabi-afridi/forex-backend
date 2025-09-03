@@ -1,6 +1,8 @@
 import AccountConnectionService from "../services/accountConnectionService.js";
 import AccountDataService from "../services/accountDataService.js";
 import AccountValidationService from "../services/accountValidationService.js";
+import OrderHistory from "../models/orderHistorySchema.js";
+import TradingAccount from "../models/TradingAccount.js";
 
 //  GET OPEN POSITIONS
 
@@ -120,7 +122,7 @@ export const getAccountClosedOrders = async (req, res) => {
   }
 };
 
-//  GET ORDER HISTORY (Last 30 days)
+//  GET ORDER HISTORY
 
 export const getOrderHistory = async (req, res) => {
   try {
@@ -159,7 +161,7 @@ export const getOrderHistory = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Order history synced & stored successfully",
+      message: "Order history stored successfully",
       count: historyResult.orders.length,
       data: historyResult.orders,
       dateRange: historyResult.dateRange,
@@ -170,6 +172,79 @@ export const getOrderHistory = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch/store order history",
+    });
+  }
+};
+
+// Get getAccountSummaryAndHistory from database ---------->
+
+export const getAccountSummaryAndHistory = async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const userId = req.user.id;
+    const { forceSync = false } = req.query;
+
+    // 1. Find account
+    const account = await TradingAccount.findOne({ accountNumber, userId });
+    if (!account) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Account not found" });
+    }
+
+    // 2. Get latest stats (from DB first)
+    let accountStats = account.accountStats;
+
+    if (forceSync) {
+      console.log(`🔄 [${account.accountNumber}] Force sync started...`);
+      const syncResult = await AccountDataService.syncAccountData(account);
+      if (syncResult.success) {
+        accountStats = syncResult.data;
+        console.log(`✅ [${account.accountNumber}] Force sync completed`);
+      } else {
+        console.log(`⚠️ [${account.accountNumber}] Force sync failed`);
+      }
+    } else {
+      console.log(`⏳ [${account.accountNumber}] Background sync triggered...`);
+      AccountDataService.syncAccountData(account)
+        .then(() =>
+          console.log(`✅ [${account.accountNumber}] Background sync completed`)
+        )
+        .catch((err) =>
+          console.error(
+            `❌ [${account.accountNumber}] Background sync failed:`,
+            err
+          )
+        );
+    }
+
+    // 3. Fetch order history (cached DB)
+    let orderHistory = await OrderHistory.findOne({ accountId: account._id });
+    if (!orderHistory) {
+      orderHistory = await OrderHistory.create({
+        accountId: account._id,
+        data: [],
+      });
+    }
+
+    // 5. Return response with metadata + stats
+    res.status(200).json({
+      success: true,
+      account: {
+        accountNumber: account.accountNumber,
+        serverName: account.serverName,
+        platform: account.platform,
+        connectionStatus: account.connectionStatus,
+        accountStats,
+      },
+      orderHistory: orderHistory.data,
+      message: "Data fetched (updates may still be syncing)",
+    });
+  } catch (error) {
+    console.error("❌ Get Summary + History Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch account summary/history",
     });
   }
 };

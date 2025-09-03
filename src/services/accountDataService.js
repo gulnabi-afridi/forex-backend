@@ -51,7 +51,7 @@ class AccountDataService {
       }
     } catch (error) {
       console.error("⚠️ MTAPI fetch error:", error);
-      return account.accountStats; 
+      return account.accountStats;
     }
   }
 
@@ -69,10 +69,15 @@ class AccountDataService {
     );
   }
 
-  static async getOrderHistory(account, days = 30) {
+  static async getOrderHistory(account, days = null) {
     const toDate = new Date();
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - days);
+    const fromDate = days
+      ? (() => {
+          const date = new Date();
+          date.setDate(date.getDate() - days);
+          return date;
+        })()
+      : null;
 
     const formatDate = (date) => date.toISOString().slice(0, 19);
 
@@ -80,7 +85,7 @@ class AccountDataService {
     const orderHistoryResult = await mtapiService.getOrderHistory(
       account.mtapiId,
       account.platform,
-      formatDate(fromDate),
+      fromDate ? formatDate(fromDate) : null,
       formatDate(toDate)
     );
 
@@ -98,7 +103,7 @@ class AccountDataService {
     return {
       orders,
       dateRange: {
-        from: formatDate(fromDate),
+        from: fromDate ? formatDate(fromDate) : "All history",
         to: formatDate(toDate),
       },
     };
@@ -124,6 +129,33 @@ class AccountDataService {
         history.data.push(...newOrders);
         await history.save();
       }
+    }
+  }
+
+  //  Sync both stats + order history
+  static async syncAccountData(account, { days = null } = {}) {
+    try {
+      const [statsResult, historyResult] = await Promise.allSettled([
+        this.syncAccountStats(account),
+        this.getOrderHistory(account, days),
+      ]);
+
+      return {
+        success: true,
+        stats:
+          statsResult.status === "fulfilled" ? statsResult.value.data : null,
+        orders:
+          historyResult.status === "fulfilled"
+            ? historyResult.value.orders
+            : [],
+        dateRange:
+          historyResult.status === "fulfilled"
+            ? historyResult.value.dateRange
+            : null,
+      };
+    } catch (error) {
+      console.error("⚠️ Full account sync error:", error);
+      return { success: false, error: error.message };
     }
   }
 

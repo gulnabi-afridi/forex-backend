@@ -11,6 +11,7 @@ import {
   getAccountPositions,
   getAccountClosedOrders,
   getOrderHistory,
+  getAccountSummaryAndHistory,
 } from "../controllers/tradingDataController.js";
 
 import { authMiddleware } from "../middlewares/auth.js";
@@ -29,7 +30,8 @@ router.delete("/:accountNumber", deleteAccount);
 
 // Trading Data Routes
 router.get("/:accountNumber/positions", getAccountPositions);
-router.get("/:accountNumber/closePositions", getAccountClosedOrders);
+router.get("/:accountNumber/close-positions", getAccountClosedOrders);
 router.get("/:accountNumber/history", getOrderHistory);
+router.get("/:accountNumber/summary-history", getAccountSummaryAndHistory);
 
 export default router;
