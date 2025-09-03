@@ -379,7 +379,7 @@ export const getAccountPositions = async (req, res) => {
   }
 };
 
-// GET CLOSED ORDERS
+// GET CLOSED ORDERS - Return the very recent one --->
 export const getAccountClosedOrders = async (req, res) => {
   try {
     const { accountNumber } = req.params;
