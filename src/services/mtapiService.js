@@ -7,7 +7,7 @@ const createMtapiClient = (platform) =>
       platform === "MT5" ? "https://mt5.mtapi.io" : "https://mt4.mtapi.io",
     timeout: 30000,
     headers: {
-      "Content-Type": "text/plain",
+      // "Content-Type": "text/plain",
       Authorization: `Bearer ${process.env.MTAPI_TOKEN}`,
     },
   });
@@ -24,8 +24,8 @@ export const mtapiService = {
           user: accountNumber,
           password: password,
           server: serverName,
-          // id: `account-${accountNumber}`,
-          id: generate64BitId().toString(),
+          id: `account-${accountNumber}`,
+          // id: generate64BitId().toString(),
         },
         headers: {
           Accept: "text/plain",

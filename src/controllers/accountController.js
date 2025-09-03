@@ -149,6 +149,10 @@ export const addAccount = async (req, res) => {
         mtapiId,
         platform
       );
+
+
+
+
       if (accountInfoResult.success) {
         const accountInfo = accountInfoResult.data;
         newAccount.accountStats = {
