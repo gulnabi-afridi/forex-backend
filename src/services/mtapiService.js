@@ -13,6 +13,9 @@ const createMtapiClient = (platform) =>
   });
 
 export const mtapiService = {
+
+  
+  // ✅ Connect Account
   async connectAccount(accountData) {
     try {
       const { accountNumber, password, serverName, platform } = accountData;
@@ -25,14 +28,28 @@ export const mtapiService = {
           password: password,
           server: serverName,
           id: `account-${accountNumber}`,
-          // id: generate64BitId().toString(),
         },
         headers: {
           Accept: "text/plain",
         },
       });
 
-      return { success: true, data: response.data };
+      // If MTAPI returns an object with error inside raw
+      if (response.data?.code === "CONNECT_ERROR") {
+        return {
+          success: false,
+          error: response.data.message || "Connection failed",
+          raw: response.data,
+        };
+      }
+
+      // ✅ Normal success case
+      return {
+        success: true,
+        mtapiId: `account-${accountNumber}`,
+        connectionStatus: "connected",
+        raw: response.data,
+      };
     } catch (error) {
       console.error(
         "MTAPI Connect Error:",
@@ -51,10 +68,19 @@ export const mtapiService = {
   async getAccountInfo(mtapiId, platform) {
     try {
       const client = createMtapiClient(platform);
-      const response = await client.get("/AccountSummary", {
-        params: { id: mtapiId },
-      });
-      return { success: true, data: response.data };
+      const [summaryRes, accountRes] = await Promise.all([
+        client.get("/AccountSummary", { params: { id: mtapiId } }),
+        client.get("/Account", { params: { id: mtapiId } }),
+      ]);
+
+      const { type, userName } = accountRes.data;
+
+      const data = {
+        ...summaryRes.data,
+        type,
+        userName,
+      };
+      return { success: true, data };
     } catch (error) {
       return {
         success: false,

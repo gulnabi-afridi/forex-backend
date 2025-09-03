@@ -34,6 +34,15 @@ export const addAccount = async (req, res) => {
       platform,
     });
 
+    console.log(connectionData, "from account controller!!");
+
+    if (!connectionData.success) {
+      return res.status(400).json({
+        success: false,
+        error: connectionData.error || "Unable to connect to MT5 server",
+      });
+    }
+
     // 4. Save account to database
     const newAccount = new TradingAccount({
       userId,
@@ -49,8 +58,8 @@ export const addAccount = async (req, res) => {
 
     // 5. Get initial account info
     try {
-      await AccountDataService.syncAccountStats(newAccount);
-      console.log("✅ Initial account data synced");
+      await AccountDataService.accountSummary(newAccount);
+      console.log("✅ Account Summary fetched!");
     } catch (syncError) {
       console.error("⚠️ Initial sync warning:", syncError);
     }
@@ -65,7 +74,7 @@ export const addAccount = async (req, res) => {
         serverName: newAccount.serverName,
         platform: newAccount.platform,
         connectionStatus: newAccount.connectionStatus,
-        accountStats: newAccount.accountStats,
+        accountSummary: newAccount.accountSummary,
         createdAt: newAccount.createdAt,
       },
     });

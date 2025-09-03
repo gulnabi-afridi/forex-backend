@@ -5,7 +5,7 @@ const orderSchema = new mongoose.Schema(
     ticket: { type: String, required: true },
     symbol: { type: String },
     type: { type: String, enum: ["buy", "sell", "Balance"] },
-    volume: { type: Number},
+    volume: { type: Number },
     openTime: { type: Date },
     closeTime: { type: Date },
     openPrice: { type: Number },
@@ -13,10 +13,9 @@ const orderSchema = new mongoose.Schema(
     profit: { type: Number, default: 0 },
     commission: { type: Number, default: 0 },
     swap: { type: Number, default: 0 },
-
     rawData: { type: Object },
   },
-  { _id: false } 
+  { _id: false }
 );
 
 const orderHistorySchema = new mongoose.Schema(
@@ -25,9 +24,11 @@ const orderHistorySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "TradingAccount",
       required: true,
-      unique: true, 
+      unique: true,
     },
-    data: [orderSchema], 
+
+    // ✅ Orders history
+    data: [orderSchema],
   },
   { timestamps: true }
 );

@@ -17,6 +17,7 @@ const tradingAccountSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     platform: {
       type: String,
       enum: ["MT4", "MT5"],
@@ -36,16 +37,17 @@ const tradingAccountSchema = new mongoose.Schema(
       enum: ["pending", "connected", "disconnected", "error"],
       default: "pending",
     },
-    accountStats: {
+    accountSummary: {
       balance: { type: Number, default: 0 },
       equity: { type: Number, default: 0 },
-      profit: { type: Number, default: 0 },
-      margin: { type: Number, default: 0 },
-      freeMargin: { type: Number, default: 0 },
       currency: { type: String, default: "USD" },
-      leverage: { type: Number, default: 100 },
-      lastPrice: { type: Number, default: null },
+      freeMargin: { type: Number, default: 0 },
+      margin: { type: Number, default: 0 },
+      type: { type: String, default: "Demo" },
+      userName: { type: String, trim: true },
       marginLevel: { type: Number, default: null },
+      profit: { type: Number, default: 0 },
+      leverage: { type: Number, default: 100 },
     },
 
     // Account Management

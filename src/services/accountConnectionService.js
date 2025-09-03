@@ -76,16 +76,11 @@ class AccountConnectionService {
   static async connectNewAccount(accountData) {
     const connectionResult = await mtapiService.connectAccount(accountData);
 
-    if (!connectionResult.success) {
-      throw new Error(connectionResult.error || "Failed to connect account");
-    }
-
     return {
-      mtapiId:
-        connectionResult.data.id ||
-        connectionResult.data.token ||
-        connectionResult.data,
-      connectionStatus: "connected",
+      ...connectionResult,
+      success: connectionResult.success,
+      mtapiId: connectionResult.mtapiId,
+      connectionStatus: connectionResult.connectionStatus || "connected",
     };
   }
 

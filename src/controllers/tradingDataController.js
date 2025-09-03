@@ -50,6 +50,7 @@ export const getAccountPositions = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      count:positionsResult.data.length,
       data: positionsResult.data,
       connectionVerified: true,
     });
@@ -193,7 +194,7 @@ export const getAccountSummaryAndHistory = async (req, res) => {
     }
 
     // 2. Get latest stats (from DB first)
-    let accountStats = account.accountStats;
+    let accountStats = account.accountSummary;
 
     if (forceSync) {
       console.log(`🔄 [${account.accountNumber}] Force sync started...`);
@@ -221,10 +222,21 @@ export const getAccountSummaryAndHistory = async (req, res) => {
     // 3. Fetch order history (cached DB)
     let orderHistory = await OrderHistory.findOne({ accountId: account._id });
     if (!orderHistory) {
-      orderHistory = await OrderHistory.create({
-        accountId: account._id,
-        data: [],
+      console.log(
+        `📥 [${account.accountNumber}] No history in DB, fetching from MTAPI...`
+      );
+      const syncResult = await AccountDataService.syncAccountData(account, {
+        days: null,
       });
+
+      if (syncResult.success) {
+        orderHistory = await OrderHistory.findOne({ accountId: account._id });
+      } else {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to sync order history for new account",
+        });
+      }
     }
 
     // 5. Return response with metadata + stats
@@ -235,9 +247,10 @@ export const getAccountSummaryAndHistory = async (req, res) => {
         serverName: account.serverName,
         platform: account.platform,
         connectionStatus: account.connectionStatus,
-        accountStats,
+        accountSummary: accountStats,
       },
       orderHistory: orderHistory.data,
+      count: orderHistory.data.length,
       message: "Data fetched (updates may still be syncing)",
     });
   } catch (error) {

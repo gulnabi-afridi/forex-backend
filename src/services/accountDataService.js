@@ -1,10 +1,11 @@
 import { mtapiService } from "./mtapiService.js";
 import OrderHistory from "../models/orderHistorySchema.js";
+import TradingAccount from "../models/TradingAccount.js";
 
 //  Service to handle trading account data operations
 
 class AccountDataService {
-  static async syncAccountStats(account) {
+  static async accountSummary(account) {
     try {
       const accountInfoResult = await mtapiService.getAccountInfo(
         account.mtapiId,
@@ -14,19 +15,25 @@ class AccountDataService {
       if (accountInfoResult.success) {
         const accountInfo = accountInfoResult.data;
         const stats = {
+          type: accountInfo.type || "Demo",
+          userName: accountInfo.userName || null,
           balance: accountInfo.balance || 0,
-          equity: accountInfo.equity || 0,
-          margin: accountInfo.margin || 0,
-          profit: accountInfo.profit || 0,
-          freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
           currency: accountInfo.currency || "USD",
           leverage: accountInfo.leverage || 100,
+          profit: accountInfo.profit || 0,
+          equity: accountInfo.equity || 0,
+          margin: accountInfo.margin || 0,
+          freeMargin: accountInfo.free_margin || accountInfo.freeMargin || 0,
         };
 
         // Update cached stats
-        account.accountStats = stats;
-        account.lastSyncAt = new Date();
-        await account.save();
+        account.accountSummary = stats;
+        await TradingAccount.findByIdAndUpdate(account._id, {
+          $set: {
+            accountSummary: stats,
+            lastSyncAt: new Date(),
+          },
+        });
 
         return { success: true, data: stats };
       }
@@ -40,7 +47,7 @@ class AccountDataService {
 
   static async getLiveAccountData(account) {
     try {
-      const syncResult = await this.syncAccountStats(account);
+      const syncResult = await this.accountSummary(account);
 
       if (syncResult.success) {
         console.log("✅ Live data fetched for account:", account.accountNumber);
@@ -110,33 +117,23 @@ class AccountDataService {
   }
 
   static async storeOrderHistory(accountId, orders) {
-    let history = await OrderHistory.findOne({ accountId });
+    const formattedOrders = orders.map((order) =>
+      this.formatOrderForStorage(order)
+    );
 
-    if (!history) {
-      // Create new document
-      history = await OrderHistory.create({
-        accountId,
-        data: orders.map((order) => this.formatOrderForStorage(order)),
-      });
-    } else {
-      // Merge new orders (skip duplicates)
-      const existingTickets = new Set(history.data.map((o) => o.ticket));
-      const newOrders = orders
-        .filter((order) => !existingTickets.has(order.ticket))
-        .map((order) => this.formatOrderForStorage(order));
-
-      if (newOrders.length > 0) {
-        history.data.push(...newOrders);
-        await history.save();
-      }
-    }
+    // Overwriting to avoid duplicates
+    await OrderHistory.findOneAndUpdate(
+      { accountId },
+      { $set: { data: formattedOrders } },
+      { upsert: true, new: true }
+    );
   }
 
   //  Sync both stats + order history
   static async syncAccountData(account, { days = null } = {}) {
     try {
       const [statsResult, historyResult] = await Promise.allSettled([
-        this.syncAccountStats(account),
+        this.accountSummary(account),
         this.getOrderHistory(account, days),
       ]);
 
