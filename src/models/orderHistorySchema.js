@@ -9,6 +9,7 @@ const orderSchema = new mongoose.Schema(
     openTime: { type: Date },
     closeTime: { type: Date },
     openPrice: { type: Number },
+    lots:{type:Number},
     closePrice: { type: Number },
     profit: { type: Number, default: 0 },
     commission: { type: Number, default: 0 },

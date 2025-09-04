@@ -15,13 +15,13 @@ const createMtapiClient = (platform) =>
   });
 
 export const mtapiService = {
+  
   // ✅ Connect Account
   async connectAccount(accountData) {
     try {
       const { accountNumber, password, serverName, platform } = accountData;
       const client = createMtapiClient(platform);
 
-      // MTAPI Connect endpoint expects GET with query params
       const response = await client.get("/ConnectEx", {
         params: {
           user: accountNumber,
@@ -34,33 +34,47 @@ export const mtapiService = {
         },
       });
 
+      const res = response.data;
 
-      // If MTAPI returns an object with error inside raw
-      if (response.data?.code === "CONNECT_ERROR") {
+      // ❌ Check if MTAPI returned a known error code
+      if (res?.code === "CONNECT_ERROR") {
         return {
           success: false,
-          error: response.data.message || "Connection failed",
-          raw: response.data,
+          error: res.message || "Connection failed",
+          raw: res,
         };
       }
 
-      // server not found
-      // if (
-      //   response.data?.code === "DONE" &&
-      //   typeof response.data.message === "string" &&
-      //   /(server not found|invalid|error)/i.test(response.data.message)
-      // ) {
-      //   return {
-      //     success: false,
-      //     error: `MTAPI error: ${response.data.message}`,
-      //     raw: response.data,
-      //   };
-      // }
+      // ❌ Check for invalid credentials
+      if (
+        res?.code === "INVALID_ACCOUNT" ||
+        /invalid (account|credentials|login|password)/i.test(res?.message)
+      ) {
+        return {
+          success: false,
+          error:
+            "Invalid account credentials. Please check your login and password.",
+          raw: res,
+        };
+      }
 
-      // ✅ Normal success case
+      // ❌ Check for generic server-related issues
+      if (
+        res?.code === "DONE" &&
+        typeof res.message === "string" &&
+        /(server not found|invalid|error)/i.test(res.message)
+      ) {
+        return {
+          success: false,
+          error: `MTAPI error: ${res.message}`,
+          raw: res,
+        };
+      }
+
+      // ✅ Normal success
       return {
         success: true,
-        mtapiId: response.data,
+        mtapiId: res,
         connectionStatus: "connected",
       };
     } catch (error) {

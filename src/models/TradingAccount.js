@@ -39,6 +39,7 @@ const tradingAccountSchema = new mongoose.Schema(
     },
     accountSummary: {
       balance: { type: Number, default: 0 },
+      accountSize:{type:Number},
       equity: { type: Number, default: 0 },
       currency: { type: String, default: "USD" },
       freeMargin: { type: Number, default: 0 },

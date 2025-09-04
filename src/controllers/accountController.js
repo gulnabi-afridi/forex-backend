@@ -2,6 +2,7 @@ import TradingAccount from "../models/TradingAccount.js";
 import AccountConnectionService from "../services/accountConnectionService.js";
 import AccountDataService from "../services/accountDataService.js";
 import AccountValidationService from "../services/accountValidationService.js";
+import OrderHistory from "../models/orderHistorySchema.js";
 
 //  ADD NEW TRADING ACCOUNT
 
@@ -40,6 +41,8 @@ export const addAccount = async (req, res) => {
         error: connectionData.error || "Unable to connect to MT5 server",
       });
     }
+
+
 
     // 4. Save account to database
     const newAccount = new TradingAccount({
@@ -170,11 +173,12 @@ export const getAccountById = async (req, res) => {
 
 export const deleteAccount = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { mtapiId } = req.params;
     const userId = req.user.id;
 
+    // Find the account
     const account = await AccountValidationService.findUserAccount(
-      accountNumber,
+      mtapiId,
       userId,
       true
     );
@@ -189,13 +193,15 @@ export const deleteAccount = async (req, res) => {
     // Disconnect from MTAPI
     await AccountConnectionService.disconnectAccount(account);
 
-    // Soft delete (keep data but mark as inactive)
-    account.isActive = false;
-    await account.save();
+    // Delete order history
+    await OrderHistory.deleteOne({ accountId: account._id });
+
+    // Delete the account completely
+    await TradingAccount.deleteOne({ _id: account._id });
 
     res.status(200).json({
       success: true,
-      message: "Account deleted successfully",
+      message: "Account and its order history deleted successfully",
     });
   } catch (error) {
     console.error("❌ Delete Account Error:", error);

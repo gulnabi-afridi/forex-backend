@@ -88,6 +88,7 @@ class AccountDataService {
 
     const orders = orderHistoryResult.data.orders || orderHistoryResult.data;
 
+
     // Save/merge into DB
     await this.storeOrderHistory(account._id, orders);
 
@@ -144,7 +145,8 @@ class AccountDataService {
     return {
       ticket: order.ticket,
       symbol: order.symbol,
-      type: order.type,
+      type: order.orderType,
+      lots: order.lots,
       volume: order.volume,
       openTime: new Date(order.openTime),
       closeTime: order.closeTime ? new Date(order.closeTime) : null,
