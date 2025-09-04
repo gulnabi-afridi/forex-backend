@@ -26,9 +26,9 @@ class AccountValidationService {
     return !!existingAccount;
   }
 
-  static async findUserAccount(accountNumber, userId, includePassword = false) {
+  static async findUserAccount(mtapiId, userId, includePassword = false) {
     const query = TradingAccount.findOne({
-      accountNumber,
+      mtapiId,
       userId,
       isActive: true,
     });

@@ -8,11 +8,11 @@ import TradingAccount from "../models/TradingAccount.js";
 
 export const getAccountPositions = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { mtapiId } = req.params;
     const userId = req.user.id;
 
     const account = await AccountValidationService.findUserAccount(
-      accountNumber,
+      mtapiId,
       userId,
       true
     );
@@ -50,7 +50,7 @@ export const getAccountPositions = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      count:positionsResult.data.length,
+      count: positionsResult.data.length,
       data: positionsResult.data,
       connectionVerified: true,
     });
@@ -67,11 +67,11 @@ export const getAccountPositions = async (req, res) => {
 
 export const getAccountClosedOrders = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { mtapiId } = req.params;
     const userId = req.user.id;
 
     const account = await AccountValidationService.findUserAccount(
-      accountNumber,
+      mtapiId,
       userId,
       true
     );
@@ -127,12 +127,12 @@ export const getAccountClosedOrders = async (req, res) => {
 
 export const getOrderHistory = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { mtapiId } = req.params;
     const userId = req.user.id;
 
     // Find the trading account
     const account = await AccountValidationService.findUserAccount(
-      accountNumber,
+      mtapiId,
       userId,
       true
     );
@@ -181,12 +181,12 @@ export const getOrderHistory = async (req, res) => {
 
 export const getAccountSummaryAndHistory = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { mtapiId } = req.params;
     const userId = req.user.id;
     const { forceSync = false } = req.query;
 
     // 1. Find account
-    const account = await TradingAccount.findOne({ accountNumber, userId });
+    const account = await TradingAccount.findOne({ mtapiId, userId });
     if (!account) {
       return res
         .status(404)

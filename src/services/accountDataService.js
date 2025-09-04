@@ -45,22 +45,6 @@ class AccountDataService {
     }
   }
 
-  static async getLiveAccountData(account) {
-    try {
-      const syncResult = await this.accountSummary(account);
-
-      if (syncResult.success) {
-        console.log("✅ Live data fetched for account:", account.accountNumber);
-        return syncResult.data;
-      } else {
-        console.log("⚠️ Using cached data due to MTAPI error");
-        return account.accountStats;
-      }
-    } catch (error) {
-      console.error("⚠️ MTAPI fetch error:", error);
-      return account.accountStats;
-    }
-  }
 
   static async getOpenPositions(account) {
     return await mtapiService.getOpenPositions(

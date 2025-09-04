@@ -76,6 +76,8 @@ class AccountConnectionService {
   static async connectNewAccount(accountData) {
     const connectionResult = await mtapiService.connectAccount(accountData);
 
+    console.log(connectionResult);
+
     return {
       ...connectionResult,
       success: connectionResult.success,

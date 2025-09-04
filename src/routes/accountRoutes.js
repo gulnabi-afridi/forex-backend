@@ -24,14 +24,14 @@ router.use(authMiddleware);
 // Account Management Routes
 router.post("/", addAccount);
 router.get("/", getUserAccounts);
-router.get("/:accountNumber", getAccountById);
-router.put("/:accountNumber/status", checkConnectionStatus);
-router.delete("/:accountNumber", deleteAccount);
+router.get("/:mtapiId", getAccountById);
+router.put("/:mtapiId/status", checkConnectionStatus);
+router.delete("/:mtapiId", deleteAccount);
 
 // Trading Data Routes
-router.get("/:accountNumber/positions", getAccountPositions);
-router.get("/:accountNumber/close-positions", getAccountClosedOrders);
-router.get("/:accountNumber/history", getOrderHistory);
-router.get("/:accountNumber/summary-history", getAccountSummaryAndHistory);
+router.get("/:mtapiId/positions", getAccountPositions);
+router.get("/:mtapiId/close-positions", getAccountClosedOrders);
+router.get("/:mtapiId/history", getOrderHistory);
+router.get("/:mtapiId/summary-history", getAccountSummaryAndHistory);
 
 export default router;

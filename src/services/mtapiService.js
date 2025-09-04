@@ -4,17 +4,17 @@ import { generate64BitId } from "../utils/generate64BitId.js";
 const createMtapiClient = (platform) =>
   axios.create({
     baseURL:
-      platform === "MT5" ? "https://mt5.mtapi.io" : "https://mt4.mtapi.io",
+      platform === "MT5"
+        ? "https://mt5full3.mtapi.io"
+        : "https://mt4full3.mtapi.io",
     timeout: 30000,
     headers: {
-      // "Content-Type": "text/plain",
-      Authorization: `Bearer ${process.env.MTAPI_TOKEN}`,
+      ApiKey: process.env.MTAPI_TOKEN,
+      Accept: "text/plain",
     },
   });
 
 export const mtapiService = {
-
-  
   // ✅ Connect Account
   async connectAccount(accountData) {
     try {
@@ -27,12 +27,13 @@ export const mtapiService = {
           user: accountNumber,
           password: password,
           server: serverName,
-          id: `account-${accountNumber}`,
+          id: generate64BitId().toString(),
         },
         headers: {
-          Accept: "text/plain",
+          Accept: "application/json",
         },
       });
+
 
       // If MTAPI returns an object with error inside raw
       if (response.data?.code === "CONNECT_ERROR") {
@@ -43,12 +44,24 @@ export const mtapiService = {
         };
       }
 
+      // server not found
+      // if (
+      //   response.data?.code === "DONE" &&
+      //   typeof response.data.message === "string" &&
+      //   /(server not found|invalid|error)/i.test(response.data.message)
+      // ) {
+      //   return {
+      //     success: false,
+      //     error: `MTAPI error: ${response.data.message}`,
+      //     raw: response.data,
+      //   };
+      // }
+
       // ✅ Normal success case
       return {
         success: true,
-        mtapiId: `account-${accountNumber}`,
+        mtapiId: response.data,
         connectionStatus: "connected",
-        raw: response.data,
       };
     } catch (error) {
       console.error(

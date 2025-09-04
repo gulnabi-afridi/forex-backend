@@ -34,8 +34,6 @@ export const addAccount = async (req, res) => {
       platform,
     });
 
-    console.log(connectionData, "from account controller!!");
-
     if (!connectionData.success) {
       return res.status(400).json({
         success: false,
@@ -70,6 +68,7 @@ export const addAccount = async (req, res) => {
       message: "Trading account added successfully",
       data: {
         id: newAccount._id,
+        mtapiId: newAccount.mtapiId,
         accountNumber: newAccount.accountNumber,
         serverName: newAccount.serverName,
         platform: newAccount.platform,
@@ -113,17 +112,15 @@ export const getUserAccounts = async (req, res) => {
 
 export const getAccountById = async (req, res) => {
   try {
-    const { accountNumber } = req.params;
+    const { mtapiId } = req.params;
     const userId = req.user.id;
 
-    // Validate input
-    AccountValidationService.validateAccountNumber(accountNumber);
+    AccountValidationService.validateAccountNumber(mtapiId);
 
-    // Find account
     const account = await AccountValidationService.findUserAccount(
-      accountNumber,
+      mtapiId,
       userId,
-      true // Include password for connection
+      true
     );
 
     if (!account) {
@@ -133,7 +130,7 @@ export const getAccountById = async (req, res) => {
       });
     }
 
-    // Check and ensure connection
+    // Ensure connection
     const connectionCheck = await AccountConnectionService.ensureConnection(
       account
     );
@@ -152,14 +149,10 @@ export const getAccountById = async (req, res) => {
       });
     }
 
-    // Get live account data
-    const liveData = await AccountDataService.getLiveAccountData(account);
-
     res.status(200).json({
       success: true,
       data: {
         ...account.toObject(),
-        liveStats: liveData,
         connectionVerified: true,
         lastSyncAt: account.lastSyncAt,
       },
