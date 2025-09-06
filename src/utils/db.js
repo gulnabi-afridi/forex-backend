@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
+    // Check if already connected
     if (mongoose.connections[0].readyState) {
       console.log("✅ Using existing MongoDB connection");
       return;
@@ -17,6 +18,8 @@ const connectDB = async () => {
     }
 
     console.log("🔄 Connecting to MongoDB...");
+
+    await mongoose.connect(mongoURI);
 
     console.log(`✅ MongoDB Connected`);
     
