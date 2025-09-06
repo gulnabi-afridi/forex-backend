@@ -7,7 +7,8 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());``
+app.use(express.json());
+
 
 app.use("/api/auth", authRoutes);
 app.use("/api/accounts", accountRoutes);
@@ -27,6 +28,5 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
-
 
 export default app;
