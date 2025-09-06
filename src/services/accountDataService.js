@@ -45,7 +45,6 @@ class AccountDataService {
     }
   }
 
-
   static async getOpenPositions(account) {
     return await mtapiService.getOpenPositions(
       account.mtapiId,
@@ -87,7 +86,6 @@ class AccountDataService {
     }
 
     const orders = orderHistoryResult.data.orders || orderHistoryResult.data;
-
 
     // Save/merge into DB
     await this.storeOrderHistory(account._id, orders);
