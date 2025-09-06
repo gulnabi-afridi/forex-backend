@@ -1,17 +1,27 @@
 import jwt from "jsonwebtoken";
+import Blacklist from "../models/Blacklist.js";
 
-export const authMiddleware = (req, res, next) => {
-  const token = req.headers["authorization"]?.split(" ")[1];
+export const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
 
-  if (!token) {
-    return res.status(403).json({ message: "No token provided" });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "No token provided" });
   }
 
+  const token = authHeader.split(" ")[1];
+
   try {
+    // ✅ Check blacklist if you’re using it
+    const blacklisted = await Blacklist.findOne({ token });
+    if (blacklisted) {
+      return res.status(401).json({ message: "Token is blacklisted. Please log in again." });
+    }
+
+    // ✅ Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = decoded; 
     next();
   } catch (err) {
-    return res.status(401).json({ message: "Invalid or expired token" });
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 };
