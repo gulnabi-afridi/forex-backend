@@ -15,7 +15,6 @@ const createMtapiClient = (platform) =>
   });
 
 export const mtapiService = {
-  
   // ✅ Connect Account
   async connectAccount(accountData) {
     try {
@@ -176,27 +175,94 @@ export const mtapiService = {
     }
   },
 
-  // ✅ Check Connection Status
-  async getConnectionStatus(mtapiId, platform) {
+  // ✅ Check Connection Status (with auto-reconnect)
+
+  async checkAndReconnect(mtapiId, platform, accountData = null) {
     try {
+      console.log(
+        `🔍 Checking connection for MTAPI ID: ${mtapiId} (${platform})`
+      );
+
       const client = createMtapiClient(platform);
       const response = await client.get("/CheckConnect", {
         params: { id: mtapiId },
       });
 
       const rawData = response.data;
+      console.log(`📡 MTAPI CheckConnect response:`, rawData);
 
-      // Normalize response
-      const isConnected =
-        rawData === true ||
-        rawData?.connected === true ||
-        rawData === "OK" ||
-        rawData === "Connected";
+      // ⚠️ Handle INVALID_TOKEN error (API returns 200 but with error object)
+      if (rawData?.code === "INVALID_TOKEN") {
+        console.log(
+          `🔄 INVALID_TOKEN detected, attempting fresh connection...`
+        );
 
-      return { success: true, data: isConnected };
+        if (!accountData) {
+          return {
+            success: false,
+            connected: false,
+            error: "Invalid token - need account credentials for reconnection",
+            needsReconnect: true,
+          };
+        }
+
+        // Try fresh connection
+        const freshConnection = await this.connectAccount(accountData);
+
+        if (freshConnection.success) {
+          console.log(
+            `✅ Fresh connection established with new ID: ${freshConnection.mtapiId}`
+          );
+          return {
+            success: true,
+            connected: true,
+            autoReconnected: true,
+            mtapiId: freshConnection.mtapiId,
+            freshConnection: true,
+          };
+        } else {
+          return {
+            success: false,
+            connected: false,
+            error: freshConnection.error || "Failed to create fresh connection",
+          };
+        }
+      }
+
+      // CheckConnect returns 'OK' if connected or successfully reconnected
+      const isConnected = rawData === "OK" || rawData === true;
+
+      if (isConnected) {
+        console.log(`✅ Account ${mtapiId} is connected (or auto-reconnected)`);
+        return {
+          success: true,
+          connected: true,
+          autoReconnected: true,
+          mtapiId: mtapiId,
+        };
+      } else {
+        console.log(
+          `❌ Account ${mtapiId} connection failed. Raw response:`,
+          rawData
+        );
+        return {
+          success: false,
+          connected: false,
+          error: `Connection check failed: ${rawData.message || rawData}`,
+          needsReconnect: true,
+        };
+      }
     } catch (error) {
+      console.error(`❌ CheckConnect API error for ${mtapiId}:`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+      });
+
       return {
         success: false,
+        connected: false,
         error: error.response?.data?.message || error.message,
         status: error.response?.status,
       };

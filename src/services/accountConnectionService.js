@@ -5,66 +5,55 @@ import { mtapiService } from "./mtapiService.js";
 class AccountConnectionService {
   static async ensureConnection(account) {
     try {
-      // If no mtapiId, account was never connected
       if (!account.mtapiId) {
         throw new Error("Account was never connected to MTAPI");
       }
-
-      // Check current connection status
-      const statusResult = await mtapiService.getConnectionStatus(
-        account.mtapiId,
-        account.platform
-      );
-
-      if (statusResult.success && statusResult.data) {
-        // Account is connected
-        if (account.connectionStatus !== "connected") {
-          account.connectionStatus = "connected";
-          await account.save();
-          console.log("✅ Account connection status updated to connected");
-        }
-        return { success: true, connected: true };
-      }
-
-      // Account is disconnected, try to reconnect
-      console.log("🔄 Account disconnected, attempting to reconnect...");
-
-      const reconnectResult = await mtapiService.connectAccount({
+  
+      // Pass account credentials for potential fresh connection
+      const accountData = {
         accountNumber: account.accountNumber,
         password: account.password,
         serverName: account.serverName,
         platform: account.platform,
-      });
-
-      if (reconnectResult.success) {
-        // Update mtapiId in case it changed
-        const newMtapiId =
-          reconnectResult.data.id ||
-          reconnectResult.data.token ||
-          reconnectResult.data;
-
-        account.mtapiId = newMtapiId;
+      };
+  
+      const result = await mtapiService.checkAndReconnect(
+        account.mtapiId,
+        account.platform,
+        accountData
+      );
+  
+      if (result.success && result.connected) {
+        // Update mtapiId if it changed (fresh connection)
+        if (result.mtapiId && result.mtapiId !== account.mtapiId) {
+          console.log(`🔄 Updating mtapiId: ${account.mtapiId} → ${result.mtapiId}`);
+          account.mtapiId = result.mtapiId;
+        }
+  
         account.connectionStatus = "connected";
         await account.save();
-
-        console.log("✅ Account reconnected successfully");
-        return { success: true, connected: true, reconnected: true };
+        
+        return { 
+          success: true, 
+          connected: true,
+          reconnected: result.autoReconnected || result.freshConnection
+        };
       }
-
-      // Failed to reconnect
+  
+      // Connection failed
       account.connectionStatus = "disconnected";
       await account.save();
-
+  
       return {
         success: false,
         connected: false,
-        error: "Failed to reconnect account",
+        error: result.error || "Connection check failed",
       };
     } catch (error) {
       console.error("❌ Connection check error:", error);
       account.connectionStatus = "error";
       await account.save();
-
+  
       return {
         success: false,
         connected: false,

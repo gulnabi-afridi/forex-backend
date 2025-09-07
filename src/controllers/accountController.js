@@ -42,8 +42,6 @@ export const addAccount = async (req, res) => {
       });
     }
 
-
-
     // 4. Save account to database
     const newAccount = new TradingAccount({
       userId,
