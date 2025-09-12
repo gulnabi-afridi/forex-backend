@@ -95,16 +95,96 @@ export const getUserAccounts = async (req, res) => {
     const userId = req.user.id;
     const accounts = await AccountValidationService.findUserAccounts(userId);
 
+    // Check and update connection status for each account
+    const updatedAccounts = await Promise.allSettled(
+      accounts.map(async (account) => {
+        try {
+          // Skip if account doesn't have mtapiId
+          if (!account.mtapiId) {
+            return {
+              ...account.toObject(),
+              connectionStatus: "not_connected",
+              lastConnectionCheck: new Date(),
+            };
+          }
+
+          // Check connection status and reconnect if needed
+          const connectionResult =
+            await AccountConnectionService.ensureConnection(account);
+
+          // Reload account from database to get updated mtapiId if it changed
+          const refreshedAccount = await TradingAccount.findById(account._id);
+
+          return {
+            ...refreshedAccount.toObject(),
+            connectionVerified: connectionResult.success,
+            reconnected: connectionResult.reconnected || false,
+            lastConnectionCheck: new Date(),
+            connectionError: connectionResult.error || null,
+          };
+        } catch (error) {
+          console.error(
+            `⚠️ Connection check failed for account ${account.accountNumber}:`,
+            error
+          );
+
+          // Update account status to error
+          account.connectionStatus = "error";
+          await account.save();
+
+          return {
+            ...account.toObject(),
+            connectionVerified: false,
+            lastConnectionCheck: new Date(),
+            connectionError: error.message,
+          };
+        }
+      })
+    );
+
+    // Extract successful results and handle any failures
+    const processedAccounts = updatedAccounts.map((result, index) => {
+      if (result.status === "fulfilled") {
+        return result.value;
+      } else {
+        console.error(
+          `Failed to process account ${accounts[index].accountNumber}:`,
+          result.reason
+        );
+        return {
+          ...accounts[index].toObject(),
+          connectionVerified: false,
+          connectionError: "Failed to check connection",
+          lastConnectionCheck: new Date(),
+        };
+      }
+    });
+
+    // Log summary of connection checks
+    const connectedCount = processedAccounts.filter(
+      (acc) => acc.connectionVerified
+    ).length;
+    const totalCount = processedAccounts.length;
+    console.log(
+      `📊 Connection Summary: ${connectedCount}/${totalCount} accounts connected`
+    );
+
     res.status(200).json({
       success: true,
-      message: "Accounts fetched successfully",
-      data: accounts,
+      message: "Accounts fetched successfully with connection verification",
+      data: processedAccounts,
+      summary: {
+        totalAccounts: totalCount,
+        connectedAccounts: connectedCount,
+        lastCheckAt: new Date(),
+      },
     });
   } catch (error) {
     console.error("❌ Get Accounts Error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch accounts",
+      error: error.message,
     });
   }
 };

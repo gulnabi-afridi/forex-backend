@@ -8,7 +8,7 @@ class AccountConnectionService {
       if (!account.mtapiId) {
         throw new Error("Account was never connected to MTAPI");
       }
-  
+
       // Pass account credentials for potential fresh connection
       const accountData = {
         accountNumber: account.accountNumber,
@@ -16,48 +16,59 @@ class AccountConnectionService {
         serverName: account.serverName,
         platform: account.platform,
       };
-  
+
       const result = await mtapiService.checkAndReconnect(
         account.mtapiId,
         account.platform,
         accountData
       );
-  
+
       if (result.success && result.connected) {
+        let mtapiIdUpdated = false;
+
         // Update mtapiId if it changed (fresh connection)
         if (result.mtapiId && result.mtapiId !== account.mtapiId) {
-          console.log(`🔄 Updating mtapiId: ${account.mtapiId} → ${result.mtapiId}`);
+          console.log(
+            `🔄 Updating mtapiId: ${account.mtapiId} → ${result.mtapiId}`
+          );
           account.mtapiId = result.mtapiId;
+          account.markModified("mtapiId");
+          mtapiIdUpdated = true;
         }
-  
+
         account.connectionStatus = "connected";
+        account.lastSyncAt = new Date();
         await account.save();
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           connected: true,
-          reconnected: result.autoReconnected || result.freshConnection
+          reconnected: result.autoReconnected || result.freshConnection,
+          mtapiIdUpdated,
+          newMtapiId: result.mtapiId,
         };
       }
-  
+
       // Connection failed
       account.connectionStatus = "disconnected";
       await account.save();
-  
+
       return {
         success: false,
         connected: false,
         error: result.error || "Connection check failed",
+        reconnected: false,
       };
     } catch (error) {
       console.error("❌ Connection check error:", error);
       account.connectionStatus = "error";
       await account.save();
-  
+
       return {
         success: false,
         connected: false,
         error: error.message,
+        reconnected: false,
       };
     }
   }

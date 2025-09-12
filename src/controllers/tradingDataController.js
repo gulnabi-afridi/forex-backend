@@ -249,6 +249,7 @@ export const getAccountSummaryAndHistory = async (req, res) => {
         connectionStatus: account.connectionStatus,
         accountSummary: accountStats,
       },
+      lastUpdatedAt: orderHistory.updatedAt,
       orderHistory: orderHistory.data,
       count: orderHistory.data.length,
       message: "Data fetched (updates may still be syncing)",
