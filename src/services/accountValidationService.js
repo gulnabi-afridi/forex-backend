@@ -45,7 +45,6 @@ class AccountValidationService {
       userId,
       isActive: true,
     })
-      .select("-password")
       .sort({ createdAt: -1 });
   }
 

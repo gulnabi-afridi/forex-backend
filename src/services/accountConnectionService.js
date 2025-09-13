@@ -9,6 +9,10 @@ class AccountConnectionService {
         throw new Error("Account was never connected to MTAPI");
       }
 
+      console.log(
+        `🔍 Checking connection for account ${account.accountNumber} (MTAPI ID: ${account.mtapiId})`
+      );
+
       // Pass account credentials for potential fresh connection
       const accountData = {
         accountNumber: account.accountNumber,
@@ -25,50 +29,95 @@ class AccountConnectionService {
 
       if (result.success && result.connected) {
         let mtapiIdUpdated = false;
+        let connectionType = "existing";
 
         // Update mtapiId if it changed (fresh connection)
         if (result.mtapiId && result.mtapiId !== account.mtapiId) {
           console.log(
-            `🔄 Updating mtapiId: ${account.mtapiId} → ${result.mtapiId}`
+            `🔄 [${account.accountNumber}] Updating mtapiId: ${account.mtapiId} → ${result.mtapiId}`
           );
           account.mtapiId = result.mtapiId;
           account.markModified("mtapiId");
           mtapiIdUpdated = true;
+          connectionType = result.freshConnection ? "fresh" : "reconnected";
+        } else if (result.autoReconnected) {
+          connectionType = "auto-reconnected";
         }
 
+        // Update account status
         account.connectionStatus = "connected";
         account.lastSyncAt = new Date();
-        await account.save();
+
+        try {
+          await account.save();
+          console.log(
+            `✅ [${account.accountNumber}] Connection status updated (${connectionType})`
+          );
+        } catch (saveError) {
+          console.error(
+            `⚠️ [${account.accountNumber}] Failed to save connection status:`,
+            saveError
+          );
+          // Don't fail the entire operation if save fails
+        }
 
         return {
           success: true,
           connected: true,
-          reconnected: result.autoReconnected || result.freshConnection,
+          reconnected:
+            result.autoReconnected || result.freshConnection || false,
+          connectionType,
           mtapiIdUpdated,
           newMtapiId: result.mtapiId,
         };
       }
 
-      // Connection failed
+      // Connection failed - update status
+      console.warn(
+        `❌ [${account.accountNumber}] Connection failed: ${result.error}`
+      );
       account.connectionStatus = "disconnected";
-      await account.save();
+
+      try {
+        await account.save();
+      } catch (saveError) {
+        console.error(
+          `⚠️ [${account.accountNumber}] Failed to save disconnected status:`,
+          saveError
+        );
+      }
 
       return {
         success: false,
         connected: false,
         error: result.error || "Connection check failed",
         reconnected: false,
+        connectionType: "failed",
       };
     } catch (error) {
-      console.error("❌ Connection check error:", error);
+      console.error(
+        `❌ [${account.accountNumber}] Connection check error:`,
+        error
+      );
+
+      // Update account status to error
       account.connectionStatus = "error";
-      await account.save();
+
+      try {
+        await account.save();
+      } catch (saveError) {
+        console.error(
+          `⚠️ [${account.accountNumber}] Failed to save error status:`,
+          saveError
+        );
+      }
 
       return {
         success: false,
         connected: false,
-        error: error.message,
+        error: error.message || "Unknown connection error",
         reconnected: false,
+        connectionType: "error",
       };
     }
   }

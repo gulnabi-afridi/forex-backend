@@ -108,35 +108,70 @@ export const getUserAccounts = async (req, res) => {
             };
           }
 
+          console.log(
+            `🔍 Checking connection for account ${account.accountNumber} (MTAPI ID: ${account.mtapiId})`
+          );
+
           // Check connection status and reconnect if needed
           const connectionResult =
             await AccountConnectionService.ensureConnection(account);
 
-          // Reload account from database to get updated mtapiId if it changed
+          // IMPORTANT: Reload account from database to get the latest state including updated mtapiId
           const refreshedAccount = await TradingAccount.findById(account._id);
 
-          return {
-            ...refreshedAccount.toObject(),
-            connectionVerified: connectionResult.success,
-            reconnected: connectionResult.reconnected || false,
-            lastConnectionCheck: new Date(),
-            connectionError: connectionResult.error || null,
-          };
+          if (!refreshedAccount) {
+            throw new Error("Account not found after connection check");
+          }
+
+          if (connectionResult.success && connectionResult.connected) {
+            console.log(
+              `✅ Account ${account.accountNumber} connection verified`
+            );
+
+            return {
+              ...refreshedAccount.toObject(),
+              connectionVerified: true,
+              reconnected: connectionResult.reconnected || false,
+              mtapiIdUpdated: connectionResult.mtapiIdUpdated || false,
+              lastConnectionCheck: new Date(),
+              connectionError: null,
+            };
+          } else {
+            console.warn(
+              `⚠️ Account ${account.accountNumber} connection failed: ${connectionResult.error}`
+            );
+
+            return {
+              ...refreshedAccount.toObject(),
+              connectionVerified: false,
+              reconnected: false,
+              lastConnectionCheck: new Date(),
+              connectionError: connectionResult.error || "Connection failed",
+            };
+          }
         } catch (error) {
           console.error(
-            `⚠️ Connection check failed for account ${account.accountNumber}:`,
+            `❌ Connection check failed for account ${account.accountNumber}:`,
             error
           );
 
           // Update account status to error
-          account.connectionStatus = "error";
-          await account.save();
+          try {
+            account.connectionStatus = "error";
+            await account.save();
+          } catch (saveError) {
+            console.error(
+              `Failed to save error status for account ${account.accountNumber}:`,
+              saveError
+            );
+          }
 
           return {
             ...account.toObject(),
             connectionVerified: false,
+            reconnected: false,
             lastConnectionCheck: new Date(),
-            connectionError: error.message,
+            connectionError: error.message || "Unknown connection error",
           };
         }
       })
@@ -154,19 +189,27 @@ export const getUserAccounts = async (req, res) => {
         return {
           ...accounts[index].toObject(),
           connectionVerified: false,
+          reconnected: false,
           connectionError: "Failed to check connection",
           lastConnectionCheck: new Date(),
         };
       }
     });
 
-    // Log summary of connection checks
+    // Log detailed summary of connection checks
     const connectedCount = processedAccounts.filter(
       (acc) => acc.connectionVerified
     ).length;
+    const reconnectedCount = processedAccounts.filter(
+      (acc) => acc.reconnected
+    ).length;
+    const errorCount = processedAccounts.filter(
+      (acc) => acc.connectionError
+    ).length;
     const totalCount = processedAccounts.length;
+
     console.log(
-      `📊 Connection Summary: ${connectedCount}/${totalCount} accounts connected`
+      `📊 Connection Summary: ${connectedCount}/${totalCount} connected, ${reconnectedCount} reconnected, ${errorCount} errors`
     );
 
     res.status(200).json({
@@ -176,6 +219,8 @@ export const getUserAccounts = async (req, res) => {
       summary: {
         totalAccounts: totalCount,
         connectedAccounts: connectedCount,
+        reconnectedAccounts: reconnectedCount,
+        errorAccounts: errorCount,
         lastCheckAt: new Date(),
       },
     });

@@ -216,9 +216,9 @@ export const mtapiService = {
           return {
             success: true,
             connected: true,
-            autoReconnected: true,
-            mtapiId: freshConnection.mtapiId,
+            autoReconnected: false, // This was a fresh connection, not auto-reconnect
             freshConnection: true,
+            mtapiId: freshConnection.mtapiId, // Return the NEW mtapiId
           };
         } else {
           return {
@@ -229,6 +229,7 @@ export const mtapiService = {
         }
       }
 
+      // ✅ Handle successful connection check
       // CheckConnect returns 'OK' if connected or successfully reconnected
       const isConnected = rawData === "OK" || rawData === true;
 
@@ -238,13 +239,34 @@ export const mtapiService = {
           success: true,
           connected: true,
           autoReconnected: true,
-          mtapiId: mtapiId,
+          freshConnection: false,
+          mtapiId: mtapiId, // Keep existing mtapiId
         };
       } else {
         console.log(
           `❌ Account ${mtapiId} connection failed. Raw response:`,
           rawData
         );
+
+        // If we have account data, try a fresh connection
+        if (accountData) {
+          console.log(`🔄 Connection failed, attempting fresh connection...`);
+          const freshConnection = await this.connectAccount(accountData);
+
+          if (freshConnection.success) {
+            console.log(
+              `✅ Fresh connection established with new ID: ${freshConnection.mtapiId}`
+            );
+            return {
+              success: true,
+              connected: true,
+              autoReconnected: false,
+              freshConnection: true,
+              mtapiId: freshConnection.mtapiId,
+            };
+          }
+        }
+
         return {
           success: false,
           connected: false,
@@ -259,6 +281,30 @@ export const mtapiService = {
         statusText: error.response?.statusText,
         data: error.response?.data,
       });
+
+      // If we have account data and got a network/API error, try fresh connection
+      if (accountData && error.response?.status >= 400) {
+        console.log(`🔄 API error occurred, attempting fresh connection...`);
+
+        try {
+          const freshConnection = await this.connectAccount(accountData);
+
+          if (freshConnection.success) {
+            console.log(
+              `✅ Fresh connection established after API error with new ID: ${freshConnection.mtapiId}`
+            );
+            return {
+              success: true,
+              connected: true,
+              autoReconnected: false,
+              freshConnection: true,
+              mtapiId: freshConnection.mtapiId,
+            };
+          }
+        } catch (reconnectError) {
+          console.error(`❌ Fresh connection also failed:`, reconnectError);
+        }
+      }
 
       return {
         success: false,
