@@ -60,12 +60,25 @@ export const getUserStats = async (req, res) => {
 
 export const getAllUser = async (req, res) => {
   try {
-    const allUser = await User.find();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 15;
+
+    // calculate how many to skip
+    const skip = (page - 1) * limit;
+
+    // fetch paginated users
+    const users = await User.find().skip(skip).limit(limit).select("-password");
+
+    // get total count
+    const totalUsers = await User.countDocuments();
 
     return res.status(200).json({
       message: "All users fetched successfully",
-      count: allUser.length,
-      users: allUser,
+      count: users.length,
+      totalUsers,
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
+      users,
     });
   } catch (err) {
     res.status(500).json({
@@ -78,6 +91,9 @@ export const getAllUser = async (req, res) => {
 export const searchUsers = async (req, res) => {
   try {
     const { search } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 15;
+    const skip = (page - 1) * limit;
 
     let query = {};
 
@@ -90,11 +106,21 @@ export const searchUsers = async (req, res) => {
       };
     }
 
-    const users = await User.find(query).select("-password");
+    // fetch filtered & paginated users
+    const users = await User.find(query)
+      .skip(skip)
+      .limit(limit)
+      .select("-password");
+
+    // total matched users
+    const totalUsers = await User.countDocuments(query);
 
     res.json({
       message: "Users fetched successfully",
       count: users.length,
+      totalUsers,
+      currentPage: page,
+      totalPages: Math.ceil(totalUsers / limit),
       users,
     });
   } catch (err) {
