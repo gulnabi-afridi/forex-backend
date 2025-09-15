@@ -42,3 +42,35 @@ export const addNewUser = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getUserStats = async (req, res) => {
+  try {
+    const total = await User.countDocuments();
+    const active = await User.countDocuments({ active: true });
+    const inactive = await User.countDocuments({ active: false });
+
+    res.json({ total, active, inactive });
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error in getting the UserStats",
+      error: err.message,
+    });
+  }
+};
+
+export const getAllUser = async (req, res) => {
+  try {
+    const allUser = await User.find();
+
+    return res.status(200).json({
+      message: "All users fetched successfully",
+      count: allUser.length,
+      users: allUser,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error while fetching users",
+      error: err.message,
+    });
+  }
+};
