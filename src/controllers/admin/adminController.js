@@ -74,3 +74,33 @@ export const getAllUser = async (req, res) => {
     });
   }
 };
+
+export const searchUsers = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    let query = {};
+
+    if (search) {
+      query = {
+        $or: [
+          { email: { $regex: search, $options: "i" } },
+          { name: { $regex: search, $options: "i" } },
+        ],
+      };
+    }
+
+    const users = await User.find(query).select("-password");
+
+    res.json({
+      message: "Users fetched successfully",
+      count: users.length,
+      users,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error in searching the users",
+      error: err.message,
+    });
+  }
+};
