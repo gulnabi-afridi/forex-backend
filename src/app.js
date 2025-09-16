@@ -3,6 +3,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import accountRoutes from "./routes/accountRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/accounts", accountRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/users",userRoutes);
 
 // Default
 app.get("/", (req, res) => {

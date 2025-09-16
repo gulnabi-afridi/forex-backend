@@ -13,6 +13,15 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    // check if user is inactive
+    if (!user.active) {
+      return res
+        .status(403)
+        .json({
+          message: "Your account is inactive. Please contact the support team.",
+        });
+    }
+
     // check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {

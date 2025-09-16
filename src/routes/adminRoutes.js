@@ -6,6 +6,7 @@ import { getUserStats } from "../controllers/admin/adminController.js";
 import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
+import { changeUserActiveStatus } from "../controllers/admin/adminController.js";
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.post("/add-new-user", addNewUser);
 router.get("/user-stats", getUserStats);
 router.get("/all-users", getAllUser);
 router.get("/search-users", searchUsers);
+router.patch("/users/:id", changeUserActiveStatus);
 
 router.delete("/delete-user/:id", deleteUser);
 
