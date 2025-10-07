@@ -5,6 +5,7 @@ import {
   getAccountById,
   deleteAccount,
   checkConnectionStatus,
+  receiveBotAccountData,
 } from "../controllers/accountController.js";
 
 import {
@@ -13,7 +14,6 @@ import {
   getOrderHistory,
   getAccountSummaryAndHistory,
 } from "../controllers/tradingDataController.js";
-
 import { authMiddleware } from "../middlewares/auth.js";
 
 const router = express.Router();
@@ -23,6 +23,7 @@ router.use(authMiddleware);
 
 // Account Management Routes
 router.post("/", addAccount);
+router.post("/bot/account", receiveBotAccountData);
 router.get("/", getUserAccounts);
 router.get("/:mtapiId", getAccountById);
 router.put("/:mtapiId/status", checkConnectionStatus);

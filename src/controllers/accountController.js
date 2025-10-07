@@ -88,6 +88,96 @@ export const addAccount = async (req, res) => {
   }
 };
 
+// Receive and process bot account data
+
+export const receiveBotAccountData = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { serverName, accountNumber, password, platform } = req.body;
+
+    // Validate data using your existing validation service
+    AccountValidationService.validateAccountData({
+      serverName,
+      accountNumber,
+      password,
+      platform,
+    });
+
+    console.log(serverName, accountNumber, password, platform);
+
+    // Check if this account already exists for this user
+    const accountExists = await AccountValidationService.checkAccountExists(
+      userId,
+      accountNumber
+    );
+
+    if (accountExists) {
+      return res.status(400).json({
+        success: false,
+        message: "This trading account already exists for the user",
+      });
+    }
+
+    //  Attempt connection using MTAPI
+    const connectionData = await AccountConnectionService.connectNewAccount({
+      serverName,
+      accountNumber,
+      password,
+      platform,
+    });
+
+    if (!connectionData.success) {
+      return res.status(400).json({
+        success: false,
+        message: connectionData.error || "Unable to connect to trading server",
+      });
+    }
+
+    //  Save the new trading account
+    const newAccount = new TradingAccount({
+      userId,
+      serverName,
+      accountNumber,
+      password,
+      platform,
+      mtapiId: connectionData.mtapiId,
+      connectionStatus: connectionData.connectionStatus,
+    });
+
+    await newAccount.save();
+
+    // Optionally fetch and store initial account summary
+    try {
+      await AccountDataService.accountSummary(newAccount);
+      console.log("✅ Account summary fetched successfully");
+    } catch (syncError) {
+      console.warn("⚠️ Initial summary fetch failed:", syncError.message);
+    }
+
+    // Return success response
+    res.status(201).json({
+      success: true,
+      message: "Trading account received and created successfully",
+      data: {
+        id: newAccount._id,
+        accountNumber: newAccount.accountNumber,
+        serverName: newAccount.serverName,
+        platform: newAccount.platform,
+        connectionStatus: newAccount.connectionStatus,
+        mtapiId: newAccount.mtapiId,
+        createdAt: newAccount.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error("❌ receiveBotAccountData Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process bot account data",
+      error: error.message,
+    });
+  }
+};
+
 //  GET ALL USER ACCOUNTS
 
 export const getUserAccounts = async (req, res) => {
