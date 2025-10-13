@@ -1,8 +1,5 @@
 import express from "express";
-import {
-  syncUserLicenseKeys,
-  addUserFromBot,
-} from "../controllers/syncController.js";
+import { syncUserLicenseKeys,addUserFromBot } from "../controllers/syncController.js";
 
 const router = express.Router();
 
