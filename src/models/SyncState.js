@@ -15,7 +15,6 @@ const Schema = new mongoose.Schema(
   },
   {
     timestamps: false,
-    _id: false 
   }
 );
 
