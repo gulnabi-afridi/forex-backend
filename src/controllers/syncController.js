@@ -1,6 +1,6 @@
 import UserLicenseKey from "../models/UserLicenseKey.js";
 import SyncState from "../models/SyncState.js";
-import { readOnlyPool } from "../utils/readOnlyPool.js";
+import {readOnlyPool} from "../utils/readOnlyPool.js";
 import User from "../models/User.js";
 import TradingAccount from "../models/TradingAccount.js";
 
@@ -37,7 +37,7 @@ export const syncUserLicenseKeys = async () => {
       [lastSyncedAt]
     );
 
-    if (!users || users.length === 0) {
+    if (!users.length) {
       console.log("⚠️ No new license keys found.");
       return { inserted: 0, skipped: 0, total: 0 };
     }
@@ -46,39 +46,24 @@ export const syncUserLicenseKeys = async () => {
 
     let inserted = 0;
     let skipped = 0;
-    const errors = [];
 
     for (const user of users) {
-      try {
-        const { licenseKey, userEmail, createdAt } = user;
+      const { licenseKey, userEmail } = user;
 
-        // Validate data
-        if (!licenseKey || !userEmail) {
-          console.warn(`⚠️ Skipping invalid record: licenseKey=${licenseKey}, email=${userEmail}`);
-          skipped++;
-          continue;
-        }
-
-        // Check if license key already exists in MongoDB
-        const existing = await UserLicenseKey.findOne({ licenseKey });
-        if (existing) {
-          skipped++;
-          continue;
-        }
-
-        // Create a new record (only license + email)
-        const result = await UserLicenseKey.create({
-          licenseKey,
-          userEmail,
-          createdAt: createdAt || new Date()
-        });
-
-        console.log(`✅ Inserted license: ${licenseKey}`);
-        inserted++;
-      } catch (err) {
-        console.error(`❌ Error inserting license ${user.licenseKey}:`, err.message);
-        errors.push({ licenseKey: user.licenseKey, error: err.message });
+      // Check if license key already exists in MongoDB
+      const existing = await UserLicenseKey.findOne({ licenseKey });
+      if (existing) {
+        skipped++;
+        continue;
       }
+
+      // Create a new record (only license + email)
+      await UserLicenseKey.create({
+        licenseKey,
+        userEmail,
+      });
+
+      inserted++;
     }
 
     // Update sync timestamp to latest createdAt
@@ -91,14 +76,11 @@ export const syncUserLicenseKeys = async () => {
     syncState.lastSyncedAt = latestTimestamp;
     await syncState.save();
 
-    const summary = `✅ Sync complete — Inserted: ${inserted}, Skipped: ${skipped}, Total: ${users.length}, Latest timestamp: ${latestTimestamp.toISOString()}`;
-    console.log(summary);
+    console.log(
+      `✅ Sync complete — Inserted: ${inserted}, Skipped: ${skipped}, Total: ${users.length}, Latest timestamp: ${latestTimestamp.toISOString()}`
+    );
 
-    if (errors.length > 0) {
-      console.error(`⚠️ ${errors.length} errors occurred:`, errors);
-    }
-
-    return { inserted, skipped, total: users.length, errors };
+    return { inserted, skipped, total: users.length };
   } catch (error) {
     console.error("❌ Error during license sync:", error.message);
     console.error("Full error details:", error);
