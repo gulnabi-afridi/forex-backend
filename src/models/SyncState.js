@@ -2,14 +2,20 @@ import mongoose from "mongoose";
 
 const Schema = new mongoose.Schema(
   {
+    _id: {
+      type: String,
+      required: true,
+      default: "license-sync-state"
+    },
     lastSyncedAt: {
       type: Date,
       required: true,
-      default: Date.now
+      default: () => new Date(0) 
     }
   },
   {
     timestamps: false,
+    _id: false 
   }
 );
 

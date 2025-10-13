@@ -8,9 +8,19 @@ export const syncUserLicenseKeys = async () => {
   try {
     console.log("🔄 Starting license key sync...");
 
-    // Get the last sync timestamp
-    let syncState = await SyncState.findOne();
-    const lastSyncedAt = syncState?.lastSyncedAt || new Date(0);
+    // Get the last sync timestamp with a fixed ID
+    let syncState = await SyncState.findOne({ _id: "license-sync-state" });
+    
+    if (!syncState) {
+      // Create initial sync state if it doesn't exist
+      syncState = await SyncState.create({
+        _id: "license-sync-state",
+        lastSyncedAt: new Date(0)
+      });
+      console.log("📝 Created initial sync state");
+    }
+
+    const lastSyncedAt = syncState.lastSyncedAt || new Date(0);
     console.log(`🕒 Last synced at: ${lastSyncedAt.toISOString()}`);
 
     // Fetch only license keys and user emails
@@ -29,7 +39,7 @@ export const syncUserLicenseKeys = async () => {
 
     if (!users.length) {
       console.log("⚠️ No new license keys found.");
-      return;
+      return { inserted: 0, skipped: 0, total: 0 };
     }
 
     console.log(`📦 Found ${users.length} new license keys to sync`);
@@ -62,16 +72,15 @@ export const syncUserLicenseKeys = async () => {
       return ts > max ? ts : max;
     }, lastSyncedAt);
 
-    if (syncState) {
-      syncState.lastSyncedAt = latestTimestamp;
-      await syncState.save();
-    } else {
-      await SyncState.create({ lastSyncedAt: latestTimestamp });
-    }
+    // Update the sync state with the latest timestamp
+    syncState.lastSyncedAt = latestTimestamp;
+    await syncState.save();
 
     console.log(
-      `✅ Sync complete — Inserted: ${inserted}, Skipped: ${skipped}, Total: ${users.length}`
+      `✅ Sync complete — Inserted: ${inserted}, Skipped: ${skipped}, Total: ${users.length}, Latest timestamp: ${latestTimestamp.toISOString()}`
     );
+
+    return { inserted, skipped, total: users.length };
   } catch (error) {
     console.error("❌ Error during license sync:", error.message);
     console.error("Full error details:", error);
@@ -83,8 +92,8 @@ export const addUserFromBot = async (req, res) => {
   try {
     const { licenseKey, accountNumber, serverName, platform } = req.body;
 
-    // Validate request
-    if ((!licenseKey, !accountNumber, !serverName)) {
+    // ✅ FIXED: Proper validation using OR operator
+    if (!licenseKey || !accountNumber || !serverName) {
       return res.status(400).json({
         success: false,
         message: "licenseKey, accountNumber and serverName are required.",
