@@ -1,6 +1,6 @@
 import UserLicenseKey from "../models/UserLicenseKey.js";
 import SyncState from "../models/SyncState.js";
-import readOnlyPool from "../utils/readOnlyPool.js";
+import {readOnlyPool} from "../utils/readOnlyPool.js";
 import User from "../models/User.js";
 import TradingAccount from "../models/TradingAccount.js";
 
@@ -87,7 +87,7 @@ export const addUserFromBot = async (req, res) => {
     if ((!licenseKey, !accountNumber, !serverName)) {
       return res.status(400).json({
         success: false,
-        message: "licenseKey, accountNumber and password are required.",
+        message: "licenseKey, accountNumber and serverName are required.",
       });
     }
 

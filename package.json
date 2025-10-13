@@ -18,6 +18,7 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "metaapi.cloud-sdk": "^29.3.1",
-    "mongoose": "^8.18.0"
+    "mongoose": "^8.18.0",
+    "mysql2": "^3.15.2"
   }
 }

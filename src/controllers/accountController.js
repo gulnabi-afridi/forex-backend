@@ -11,23 +11,30 @@ export const addAccount = async (req, res) => {
     const { accountNumber, serverName, platform, password } = req.body;
     const userId = req.user.id;
 
-    // 1. Validate input
     AccountValidationService.validateAccountData(req.body);
 
-    // 2. Check if account already exists
-    const accountExists = await AccountValidationService.checkAccountExists(
+    const existingAccount = await TradingAccount.findOne({
       userId,
-      accountNumber
-    );
+      accountNumber,
+    });
 
-    if (accountExists) {
-      return res.status(400).json({
-        success: false,
-        message: "This trading account is already added",
-      });
+
+    if (existingAccount) {
+      if (existingAccount.isLicenseTrue && existingAccount.connectionStatus === "pending") {
+        console.log("License valid. Reconnecting account...");
+      } else if (!existingAccount.isLicenseTrue && existingAccount.connectionStatus === "connected") {
+        return res.status(400).json({
+          success: false,
+          message: "You already have a connected account. Please disconnect first.",
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "This trading account is already added.",
+        });
+      }
     }
 
-    // 3. Connect account via MTAPI
     const connectionData = await AccountConnectionService.connectNewAccount({
       accountNumber,
       password,
@@ -42,40 +49,46 @@ export const addAccount = async (req, res) => {
       });
     }
 
-    // 4. Save account to database
-    const newAccount = new TradingAccount({
-      userId,
-      accountNumber,
-      serverName,
-      platform,
-      password,
-      mtapiId: connectionData.mtapiId,
-      connectionStatus: connectionData.connectionStatus,
-    });
+    let accountToSave;
 
-    await newAccount.save();
+    if (existingAccount) {
+      existingAccount.connectionStatus = connectionData.connectionStatus;
+      existingAccount.mtapiId = connectionData.mtapiId;
+      existingAccount.isLicenseTrue = false; // 👈 set to false after connecting
+      await existingAccount.save();
+      accountToSave = existingAccount;
+    } else {
+      accountToSave = new TradingAccount({
+        userId,
+        accountNumber,
+        serverName,
+        platform,
+        password,
+        mtapiId: connectionData.mtapiId,
+        connectionStatus: connectionData.connectionStatus,
+      });
+      await accountToSave.save();
+    }
 
-    // 5. Get initial account info
     try {
-      await AccountDataService.accountSummary(newAccount);
+      await AccountDataService.accountSummary(accountToSave);
       console.log("✅ Account Summary fetched!");
     } catch (syncError) {
       console.error("⚠️ Initial sync warning:", syncError);
     }
 
-    // 6. Return success response
     res.status(201).json({
       success: true,
-      message: "Trading account added successfully",
+      message: "Trading account connected successfully",
       data: {
-        id: newAccount._id,
-        mtapiId: newAccount.mtapiId,
-        accountNumber: newAccount.accountNumber,
-        serverName: newAccount.serverName,
-        platform: newAccount.platform,
-        connectionStatus: newAccount.connectionStatus,
-        accountSummary: newAccount.accountSummary,
-        createdAt: newAccount.createdAt,
+        id: accountToSave._id,
+        mtapiId: accountToSave.mtapiId,
+        accountNumber: accountToSave.accountNumber,
+        serverName: accountToSave.serverName,
+        platform: accountToSave.platform,
+        connectionStatus: accountToSave.connectionStatus,
+        accountSummary: accountToSave.accountSummary,
+        createdAt: accountToSave.createdAt,
       },
     });
   } catch (error) {
@@ -87,6 +100,7 @@ export const addAccount = async (req, res) => {
     });
   }
 };
+
 
 // Receive and process bot account data
 
