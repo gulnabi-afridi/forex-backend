@@ -1,98 +1,13 @@
-import UserLicenseKey from "../models/UserLicenseKey.js";
-import SyncState from "../models/SyncState.js";
-import {readOnlyPool} from "../utils/readOnlyPool.js";
+import { readOnlyPool } from "../utils/readOnlyPool.js";
 import User from "../models/User.js";
 import TradingAccount from "../models/TradingAccount.js";
-
-export const syncUserLicenseKeys = async () => {
-  try {
-    console.log("🔄 Starting license key sync...");
-
-    // Get the last sync timestamp with a fixed ID
-    let syncState = await SyncState.findOne({ _id: "license-sync-state" });
-    
-    if (!syncState) {
-      // Create initial sync state if it doesn't exist
-      syncState = await SyncState.create({
-        _id: "license-sync-state",
-        lastSyncedAt: new Date(0)
-      });
-      console.log("📝 Created initial sync state");
-    }
-
-    const lastSyncedAt = syncState.lastSyncedAt || new Date(0);
-    console.log(`🕒 Last synced at: ${lastSyncedAt.toISOString()}`);
-
-    // Fetch only license keys and user emails
-    const [users] = await readOnlyPool.query(
-      `SELECT 
-         ul.licenseKey,
-         u.email AS userEmail,
-         ul.createdAt
-       FROM UserLicenses ul
-       INNER JOIN User u ON ul.userId = u.id
-       WHERE ul.licenseKey IS NOT NULL 
-       AND ul.createdAt > ?
-       ORDER BY ul.createdAt ASC`,
-      [lastSyncedAt]
-    );
-
-    if (!users.length) {
-      console.log("⚠️ No new license keys found.");
-      return { inserted: 0, skipped: 0, total: 0 };
-    }
-
-    console.log(`📦 Found ${users.length} new license keys to sync`);
-
-    let inserted = 0;
-    let skipped = 0;
-
-    for (const user of users) {
-      const { licenseKey, userEmail } = user;
-
-      // Check if license key already exists in MongoDB
-      const existing = await UserLicenseKey.findOne({ licenseKey });
-      if (existing) {
-        skipped++;
-        continue;
-      }
-
-      // Create a new record (only license + email)
-      await UserLicenseKey.create({
-        licenseKey,
-        userEmail,
-      });
-
-      inserted++;
-    }
-
-    // Update sync timestamp to latest createdAt
-    const latestTimestamp = users.reduce((max, u) => {
-      const ts = new Date(u.createdAt);
-      return ts > max ? ts : max;
-    }, lastSyncedAt);
-
-    // Update the sync state with the latest timestamp
-    syncState.lastSyncedAt = latestTimestamp;
-    await syncState.save();
-
-    console.log(
-      `✅ Sync complete — Inserted: ${inserted}, Skipped: ${skipped}, Total: ${users.length}, Latest timestamp: ${latestTimestamp.toISOString()}`
-    );
-
-    return { inserted, skipped, total: users.length };
-  } catch (error) {
-    console.error("❌ Error during license sync:", error.message);
-    console.error("Full error details:", error);
-    throw error;
-  }
-};
 
 export const addUserFromBot = async (req, res) => {
   try {
     const { licenseKey, accountNumber, serverName, platform } = req.body;
 
-    // ✅ FIXED: Proper validation using OR operator
+    console.log("🔑 Received licenseKey:", licenseKey);
+
     if (!licenseKey || !accountNumber || !serverName) {
       return res.status(400).json({
         success: false,
@@ -100,17 +15,30 @@ export const addUserFromBot = async (req, res) => {
       });
     }
 
-    // 1️⃣ Find license key in UserLicenseKey collection
-    const licenseData = await UserLicenseKey.findOne({ licenseKey });
-    if (!licenseData) {
+    // ✅ Fetch a single license directly from MySQL
+    const [result] = await readOnlyPool.query(
+      `SELECT ul.licenseKey, u.email AS userEmail
+       FROM UserLicenses ul
+       INNER JOIN User u ON ul.userId = u.id
+       WHERE ul.licenseKey = ?
+       LIMIT 1`,
+      [licenseKey]
+    );
+
+    const licenseRecord = result?.[0]; // single record
+
+    if (!licenseRecord) {
       return res.status(404).json({
         success: false,
         message: "License key not found or invalid.",
       });
     }
 
-    // 2️⃣ Check if user exists by email
-    const user = await User.findOne({ email: licenseData.userEmail });
+    const { userEmail } = licenseRecord;
+    console.log("📧 Found user with email:", userEmail);
+
+    // 2️⃣ Check if user exists in MongoDB
+    const user = await User.findOne({ email: userEmail });
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -121,7 +49,7 @@ export const addUserFromBot = async (req, res) => {
     // 3️⃣ Check if trading account already exists
     const existingAccount = await TradingAccount.findOne({
       userId: user._id,
-      accountNumber: accountNumber,
+      accountNumber,
     });
 
     if (existingAccount) {
@@ -131,13 +59,13 @@ export const addUserFromBot = async (req, res) => {
       });
     }
 
-    // 4️⃣ Create new trading account
+    // 4️⃣ Create trading account
     const newAccount = await TradingAccount.create({
       userId: user._id,
-      accountNumber: accountNumber || null,
-      serverName: serverName || null,
-      isLicenseTrue: true,
+      accountNumber,
+      serverName,
       platform: platform || "MT5",
+      isLicenseTrue: true,
       password: null,
       accountSummary: null,
     });
@@ -147,6 +75,7 @@ export const addUserFromBot = async (req, res) => {
       message: "License verified and trading account created successfully.",
       data: newAccount,
     });
+
   } catch (error) {
     console.error("❌ Error verifying license:", error);
     return res.status(500).json({
