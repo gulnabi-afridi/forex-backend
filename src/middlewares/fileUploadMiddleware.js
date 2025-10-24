@@ -1,8 +1,6 @@
-// middleware/fileUpload.js
 import multer from "multer";
 import path from "path";
 
-// Map extensions to their correct MIME type
 const extensionToMime = {
   ".pdf": "application/pdf",
   ".png": "image/png",
@@ -28,7 +26,6 @@ export const singleFileUpload = (fieldName = "file") => {
 
     console.log("Incoming file:", file.originalname, "->", file.mimetype);
 
-    // Correct MIME type based on extension if needed
     if (extensionToMime[ext]) {
       mimeType = extensionToMime[ext];
       file.mimetype = mimeType;
@@ -49,7 +46,7 @@ export const singleFileUpload = (fieldName = "file") => {
   };
 
   const limits = {
-    fileSize: 10 * 1024 * 1024, // 10 MB
+    fileSize: 10 * 1024 * 1024, 
   };
 
   const uploader = multer({ storage, fileFilter, limits });
@@ -75,7 +72,6 @@ export const singleFileUpload = (fieldName = "file") => {
         });
       }
 
-      // Debug log after successful upload
       if (req.file) {
         console.log("File received:", {
           name: req.file.originalname,
