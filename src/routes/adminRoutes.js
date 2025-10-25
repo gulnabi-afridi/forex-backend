@@ -7,6 +7,8 @@ import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
 import { changeUserActiveStatus } from "../controllers/admin/adminController.js";
+import { addBot } from "../controllers/admin/botController.js";
+import { multipleFileUpload } from "../middlewares/fileUploadMiddleware.js";
 
 const router = express.Router();
 
@@ -20,7 +22,16 @@ router.get("/user-stats", getUserStats);
 router.get("/all-users", getAllUser);
 router.get("/search-users", searchUsers);
 router.patch("/users/:id", changeUserActiveStatus);
-
 router.delete("/delete-user/:id", deleteUser);
+
+// bots
+router.post(
+  "/bot",
+  multipleFileUpload([
+    { name: "botImage", maxCount: 1 },
+    { name: "botFile", maxCount: 1 },
+  ]),
+  addBot
+);
 
 export default router;

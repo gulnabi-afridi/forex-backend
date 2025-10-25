@@ -1,5 +1,5 @@
-import Bot from "../models/bot.model.js";
-import cloudinaryService from "../services/cloudinaryService.js";
+import Bot from "../../models/Bots.js";
+import cloudinaryService from "../../services/cloudinaryService.js";
 
 export const addBot = async (req, res) => {
   try {
@@ -86,7 +86,6 @@ export const addBot = async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "Bot added successfully",
-      data: newBot,
     });
   } catch (error) {
     console.error("Add Bot Error:", error);

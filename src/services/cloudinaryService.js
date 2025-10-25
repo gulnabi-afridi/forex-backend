@@ -1,6 +1,6 @@
+import cloudinary from '../utils/cloudinary.js';
 import streamifier from 'streamifier';
 import crypto from 'crypto';
-import cloudinary from '../utils/cloudinary.js';
 
 class CloudinaryService {
   constructor() {
@@ -224,7 +224,7 @@ class CloudinaryService {
       throw new Error(`Delete bot version failed: ${error.message}`);
     }
   }
-  
+
 
 }
 
