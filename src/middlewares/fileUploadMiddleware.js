@@ -14,7 +14,7 @@ const extensionToMime = {
   ".txt": "text/plain",
 };
 
-export const singleFileUpload = (fieldName = "file") => {
+export const singleFileUpload = (fieldName = "botFile") => {
   const storage = multer.memoryStorage();
 
   const allowedTypes = Object.values(extensionToMime);

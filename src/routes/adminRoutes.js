@@ -7,8 +7,11 @@ import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
 import { changeUserActiveStatus } from "../controllers/admin/adminController.js";
-import { addBot } from "../controllers/admin/botController.js";
-import { multipleFileUpload } from "../middlewares/fileUploadMiddleware.js";
+import { addBot, addBotVersion } from "../controllers/admin/botController.js";
+import {
+  multipleFileUpload,
+  singleFileUpload,
+} from "../middlewares/fileUploadMiddleware.js";
 
 const router = express.Router();
 
@@ -33,5 +36,7 @@ router.post(
   ]),
   addBot
 );
+
+router.post("/bot-version", singleFileUpload("botFile"), addBotVersion);
 
 export default router;

@@ -1,13 +1,28 @@
 import mongoose from "mongoose";
 
+const versionSchema = new mongoose.Schema(
+  {
+    versionName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    file: {
+      url: { type: String, required: true },
+      cloudinaryId: { type: String, required: true },
+      uploadedAt: { type: Date, default: Date.now },
+    },
+    whatsNewHere: {
+      type: String,
+      required: false, 
+    },
+  },
+  { timestamps: true }
+);
+
 const botSchema = new mongoose.Schema(
   {
     image: {
-      url: { type: String, required: false },
-      cloudinaryId: { type: String, required: false },
-      uploadedAt: { type: Date, default: Date.now },
-    },
-    file: {
       url: { type: String, required: false },
       cloudinaryId: { type: String, required: false },
       uploadedAt: { type: Date, default: Date.now },
@@ -22,15 +37,7 @@ const botSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    version: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    whatsNewHere: {
-      type: String, // Quill's HTML content
-      required: false,
-    },
+    versions: [versionSchema],
   },
   { timestamps: true }
 );
