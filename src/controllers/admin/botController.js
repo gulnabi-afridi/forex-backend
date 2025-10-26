@@ -548,3 +548,70 @@ export const addPreset = async (req, res) => {
     });
   }
 };
+
+export const deletePresetFile = async (req, res) => {
+  try {
+    const { presetId } = req.query;
+
+    if (!presetId) {
+      return res.status(400).json({
+        success: false,
+        message: "Preset ID is required",
+      });
+    }
+
+    const preset = await Preset.findById(presetId);
+    if (!preset) {
+      return res.status(404).json({
+        success: false,
+        message: "Preset not found",
+      });
+    }
+
+    if (!preset.presetFile || !preset.presetFile.cloudinaryId) {
+      return res.status(404).json({
+        success: false,
+        message: "No preset file found",
+      });
+    }
+
+    try {
+      const deleteResult = await cloudinaryService.deleteFile(
+        preset.presetFile.cloudinaryId
+      );
+
+      if (!deleteResult.success) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to delete preset file from Cloudinary",
+        });
+      }
+
+      preset.presetFile.url = undefined;
+      preset.presetFile.cloudinaryId = undefined;
+      preset.presetFile.uploadedAt = undefined;
+
+      await preset.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Preset file deleted successfully",
+      });
+    } catch (cloudinaryError) {
+      console.error("Cloudinary delete error:", cloudinaryError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to delete preset file from Cloudinary",
+        error: cloudinaryError.message,
+      });
+    }
+  } catch (error) {
+    console.error("Delete Preset File Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete preset file",
+      error: error.message,
+    });
+  }
+};
+export const editPreset = async (req, res) => {};
