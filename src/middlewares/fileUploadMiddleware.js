@@ -7,7 +7,8 @@ const extensionToMime = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".doc": "application/msword",
-  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".docx":
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".xls": "application/vnd.ms-excel",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".json": "application/json",
@@ -46,7 +47,7 @@ export const singleFileUpload = (fieldName = "botFile") => {
   };
 
   const limits = {
-    fileSize: 10 * 1024 * 1024, 
+    fileSize: 10 * 1024 * 1024,
   };
 
   const uploader = multer({ storage, fileFilter, limits });
@@ -88,58 +89,57 @@ export const singleFileUpload = (fieldName = "botFile") => {
 };
 
 export const multipleFileUpload = (fields = []) => {
-    const storage = multer.memoryStorage();
-  
-    const allowedTypes = Object.values(extensionToMime);
-    const allowedExtensions = Object.keys(extensionToMime);
-  
-    const fileFilter = (req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase();
-      let mimeType = file.mimetype;
-  
-      if (extensionToMime[ext]) {
-        mimeType = extensionToMime[ext];
-        file.mimetype = mimeType;
-      }
-  
-      if (allowedTypes.includes(mimeType) && allowedExtensions.includes(ext)) {
-        cb(null, true);
-      } else {
-        cb(
-          new Error(
-            "Only PDF, Images (png/jpg/jpeg), Word, Excel, JSON, and Text files are allowed"
-          ),
-          false
-        );
-      }
-    };
-  
-    const uploader = multer({
-      storage,
-      fileFilter,
-      limits: { fileSize: 10 * 1024 * 1024 },
-    });
-  
-    return (req, res, next) => {
-      const handler = uploader.fields(fields);
-  
-      handler(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-          return res.status(400).json({
-            success: false,
-            message: "File upload error",
-            error: err.message,
-          });
-        } else if (err) {
-          return res.status(400).json({
-            success: false,
-            message: "Upload failed",
-            error: err.message,
-          });
-        }
-  
-        next();
-      });
-    };
+  const storage = multer.memoryStorage();
+
+  const allowedTypes = Object.values(extensionToMime);
+  const allowedExtensions = Object.keys(extensionToMime);
+
+  const fileFilter = (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    let mimeType = file.mimetype;
+
+    if (extensionToMime[ext]) {
+      mimeType = extensionToMime[ext];
+      file.mimetype = mimeType;
+    }
+
+    if (allowedTypes.includes(mimeType) && allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error(
+          "Only PDF, Images (png/jpg/jpeg), Word, Excel, JSON, and Text files are allowed"
+        ),
+        false
+      );
+    }
   };
-  
+
+  const uploader = multer({
+    storage,
+    fileFilter,
+    limits: { fileSize: 10 * 1024 * 1024 },
+  });
+
+  return (req, res, next) => {
+    const handler = uploader.fields(fields);
+
+    handler(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        return res.status(400).json({
+          success: false,
+          message: "File upload error",
+          error: err.message,
+        });
+      } else if (err) {
+        return res.status(400).json({
+          success: false,
+          message: "Upload failed",
+          error: err.message,
+        });
+      }
+
+      next();
+    });
+  };
+};

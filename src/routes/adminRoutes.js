@@ -7,7 +7,13 @@ import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
 import { changeUserActiveStatus } from "../controllers/admin/adminController.js";
-import { addBot, addBotVersion } from "../controllers/admin/botController.js";
+import {
+  addBot,
+  addBotVersion,
+  editBotVersion,
+  addPreset,
+  deleteBotVersionFile
+} from "../controllers/admin/botController.js";
 import {
   multipleFileUpload,
   singleFileUpload,
@@ -38,5 +44,11 @@ router.post(
 );
 
 router.post("/bot-version", singleFileUpload("botFile"), addBotVersion);
+router.delete("/bot-version-file",deleteBotVersionFile);
+router.put("/bot-version", singleFileUpload("botFile"), editBotVersion);
+router.post("/preset", singleFileUpload("botFile"), addPreset);
 
+
+
+  
 export default router;

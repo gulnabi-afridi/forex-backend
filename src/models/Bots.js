@@ -8,13 +8,13 @@ const versionSchema = new mongoose.Schema(
       trim: true,
     },
     file: {
-      url: { type: String, required: true },
-      cloudinaryId: { type: String, required: true },
+      url: { type: String },
+      cloudinaryId: { type: String },
       uploadedAt: { type: Date, default: Date.now },
     },
     whatsNewHere: {
       type: String,
-      required: false, 
+      required: false,
     },
   },
   { timestamps: true }

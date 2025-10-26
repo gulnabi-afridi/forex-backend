@@ -5,15 +5,15 @@ const presetSchema = new mongoose.Schema(
     bot: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Bot",
-      required: true, 
+      required: true,
     },
     botVersion: {
       type: mongoose.Schema.Types.ObjectId,
-      required: true, 
+      required: true,
     },
     presetFile: {
-      url: { type: String, required: true },
-      cloudinaryId: { type: String, required: true },
+      url: { type: String },
+      cloudinaryId: { type: String },
       uploadedAt: { type: Date, default: Date.now },
     },
     name: {
