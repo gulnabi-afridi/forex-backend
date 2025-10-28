@@ -2,6 +2,34 @@ import Bot from "../../models/Bots.js";
 import cloudinaryService from "../../services/cloudinaryService.js";
 import Preset from "../../models/Preset.js";
 
+export const getBots = async (req, res) => {
+  try {
+    const bots = await Bot.find()
+      .select("title description image createdAt updatedAt")
+      .sort({ createdAt: -1 });
+
+    if (!bots || bots.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No bots found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Bots retrieved successfully",
+      data: bots,
+    });
+  } catch (error) {
+    console.error("Get Bots Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve bots",
+      error: error.message,
+    });
+  }
+};
+
 export const addBot = async (req, res) => {
   try {
     const { title, description, version, whatsNewHere } = req.body;
@@ -555,6 +583,79 @@ export const deleteBotVersion = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to delete bot version",
+      error: error.message,
+    });
+  }
+};
+
+export const countPreset = async (req, res) => {
+  try {
+    const { botId, versionId } = req.query;
+
+    if (!botId || !versionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID and version ID are required",
+      });
+    }
+
+    const count = await Preset.countDocuments({
+      bot: botId,
+      botVersion: versionId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Presets count retrieved successfully",
+      count: count,
+    });
+  } catch (error) {
+    console.error("Count Preset Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to count presets",
+      error: error.message,
+    });
+  }
+};
+
+export const getPresets = async (req, res) => {
+  try {
+    const { botId, versionId } = req.query;
+
+    if (!botId || !versionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID and version ID are required",
+      });
+    }
+
+    const presets = await Preset.find({
+      bot: botId,
+      botVersion: versionId,
+    })
+      .select(
+        "name description symbol suggestedTimeFrame suggestedAccountSize broker isPublishToCommunity presetFile"
+      )
+      .sort({ createdAt: -1 });
+
+    if (!presets || presets.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No presets found for this version",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Presets retrieved successfully",
+      data: presets,
+    });
+  } catch (error) {
+    console.error("Get Presets Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve presets",
       error: error.message,
     });
   }
