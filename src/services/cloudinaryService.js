@@ -200,6 +200,54 @@ class CloudinaryService {
   }
 
   /**
+   * Delete entire folder and all its contents from Cloudinary
+   * @param {string} folderPath - Full Cloudinary folder path to delete
+   * @returns {Promise<Object>} - Delete result
+   */
+  async deleteFolder(folderPath) {
+    try {
+      // Delete all resources in the folder
+      const result = await cloudinary.api.delete_resources_by_prefix(
+        folderPath,
+        {
+          resource_type: "raw",
+        }
+      );
+
+      // Delete the folder itself
+      try {
+        await cloudinary.api.delete_folder(folderPath);
+      } catch (e) {
+        // Ignore folder deletion errors (might already be deleted)
+        console.log("Folder already deleted or doesn't exist");
+      }
+
+      return {
+        success: true,
+        message: "Folder and all contents deleted successfully",
+        data: result,
+      };
+    } catch (error) {
+      throw new Error(`Delete folder failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete version folder and all its contents (bot file + all presets)
+   * @param {string} botId - ID of the bot
+   * @param {string} versionId - ID of the version
+   * @returns {Promise<Object>} - Delete result
+   */
+  async deleteVersionFolder(botId, versionId) {
+    try {
+      const folderPath = `${this.baseFolder}/${botId}/${versionId}`;
+      return await this.deleteFolder(folderPath);
+    } catch (error) {
+      throw new Error(`Delete version folder failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Upload file to Cloudinary (for bot files and images)
    * @param {Object} file - File object (from multer or buffer)
    * @param {string} botId - ID of the bot

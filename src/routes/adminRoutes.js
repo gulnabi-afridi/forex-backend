@@ -12,7 +12,14 @@ import {
   addBotVersion,
   editBotVersion,
   addPreset,
-  deleteBotVersionFile
+  deleteBotVersionFile,
+  deletePresetFile,
+  editPreset,
+  deleteBotVersion,
+  deletePreset,
+  getBotTitleDesc,
+  editBotTitleDesc,
+  getBotVersionData,
 } from "../controllers/admin/botController.js";
 import {
   multipleFileUpload,
@@ -42,13 +49,17 @@ router.post(
   ]),
   addBot
 );
+router.get("/bot-detail", getBotTitleDesc);
+router.put("/bot-detail", singleFileUpload("botFile"), editBotTitleDesc);
 
+router.get("/bot-version", getBotVersionData);
 router.post("/bot-version", singleFileUpload("botFile"), addBotVersion);
-router.delete("/bot-version-file",deleteBotVersionFile);
+router.delete("/bot-version-file", deleteBotVersionFile);
 router.put("/bot-version", singleFileUpload("botFile"), editBotVersion);
+router.delete("/bot-version", deleteBotVersion);
 router.post("/preset", singleFileUpload("botFile"), addPreset);
+router.put("/preset", singleFileUpload("botFile"), editPreset);
+router.delete("/preset-file", deletePresetFile);
+router.delete("/preset", deletePreset);
 
-
-
-  
 export default router;
