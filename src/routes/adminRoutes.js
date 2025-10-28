@@ -20,6 +20,7 @@ import {
   getBotTitleDesc,
   editBotTitleDesc,
   getBotVersionData,
+  getBotPresetData
 } from "../controllers/admin/botController.js";
 import {
   multipleFileUpload,
@@ -57,6 +58,8 @@ router.post("/bot-version", singleFileUpload("botFile"), addBotVersion);
 router.delete("/bot-version-file", deleteBotVersionFile);
 router.put("/bot-version", singleFileUpload("botFile"), editBotVersion);
 router.delete("/bot-version", deleteBotVersion);
+
+router.get("/bot-preset", getBotPresetData);
 router.post("/preset", singleFileUpload("botFile"), addPreset);
 router.put("/preset", singleFileUpload("botFile"), editPreset);
 router.delete("/preset-file", deletePresetFile);

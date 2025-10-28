@@ -663,6 +663,51 @@ export const addPreset = async (req, res) => {
   }
 };
 
+export const getBotPresetData = async (req, res) => {
+  try {
+    const { presetId } = req.query;
+
+    if (!presetId) {
+      return res.status(400).json({
+        success: false,
+        message: "Preset ID is required",
+      });
+    }
+
+    const preset = await Preset.findById(presetId);
+
+    if (!preset) {
+      return res.status(404).json({
+        success: false,
+        message: "Preset not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Preset data retrieved successfully",
+      data: {
+        presetId: preset._id,
+        name: preset.name,
+        description: preset.description,
+        symbol: preset.symbol,
+        suggestedTimeFrame: preset.suggestedTimeFrame,
+        suggestedAccountSize: preset.suggestedAccountSize,
+        broker: preset.broker,
+        isPublishToCommunity: preset.isPublishToCommunity,
+        presetFile: preset.presetFile,
+      },
+    });
+  } catch (error) {
+    console.error("Get Bot Preset Data Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve preset data",
+      error: error.message,
+    });
+  }
+};
+
 export const deletePresetFile = async (req, res) => {
   try {
     const { presetId } = req.query;
