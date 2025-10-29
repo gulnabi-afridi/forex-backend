@@ -210,21 +210,46 @@ export const addPreset = async (req, res) => {
 
 export const getOfficalPresets = async (req, res) => {
   try {
-    const presets = await Preset.find({ user: null })
-      .sort({ createdAt: -1 })
-      .lean();
+    const userId = req.user?.id;
+    const { botId, versionId, symbol } = req.query;
+
+    if (!botId || !versionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID and Version ID are required",
+      });
+    }
+
+    const filter = {
+      user: null,
+      bot: botId,
+      botVersion: versionId,
+    };
+
+    if (symbol) filter.symbol = symbol;
+
+    const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
 
     if (!presets || presets.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No official presets found",
+        message: symbol
+          ? `No official presets found for this bot version and symbol: ${symbol}`
+          : "No official presets found for this bot version",
       });
     }
+
+    const presetsWithFavorites = presets.map((preset) => ({
+      ...preset,
+      favoriteCount: preset.favorites?.length || 0,
+      isFavorited: userId ? preset.favorites?.includes(userId) : false,
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Official presets retrieved successfully",
-      data: presets,
+      count: presetsWithFavorites.length,
+      data: presetsWithFavorites,
     });
   } catch (error) {
     console.error("Get Official Presets Error:", error);
@@ -238,21 +263,50 @@ export const getOfficalPresets = async (req, res) => {
 
 export const communityPresets = async (req, res) => {
   try {
-    const presets = await Preset.find({ user: { $ne: null } })
-      .sort({ createdAt: -1 })
-      .lean();
+    const userId = req.user?.id;
+    const { botId, versionId, symbol } = req.query;
+
+    if (!botId || !versionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID and Version ID are required",
+      });
+    }
+
+    const filter = {
+      user: { $ne: null },
+      bot: botId,
+      botVersion: versionId,
+    };
+
+    if (symbol) {
+      filter.symbol = symbol;
+    }
+
+    const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
 
     if (!presets || presets.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No community presets found",
+        message: symbol
+          ? `No community presets found for this bot version and symbol: ${symbol}`
+          : "No community presets found for this bot version",
       });
     }
+
+    const presetsWithFavorites = presets.map((preset) => ({
+      ...preset,
+      favoriteCount: preset.favorites?.length || 0,
+      isFavorited: userId
+        ? preset.favorites?.includes(userId.toString())
+        : false,
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Community presets retrieved successfully",
-      data: presets,
+      count: presetsWithFavorites.length,
+      data: presetsWithFavorites,
     });
   } catch (error) {
     console.error("Community Presets Error:", error);
@@ -267,6 +321,7 @@ export const communityPresets = async (req, res) => {
 export const myPresets = async (req, res) => {
   try {
     const userId = req.user?.id;
+    const { botId, versionId, symbol } = req.query;
 
     if (!userId) {
       return res.status(401).json({
@@ -275,27 +330,106 @@ export const myPresets = async (req, res) => {
       });
     }
 
-    const presets = await Preset.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .lean();
+    if (!botId || !versionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID and Version ID are required",
+      });
+    }
+
+    const filter = {
+      user: userId,
+      bot: botId,
+      botVersion: versionId,
+    };
+
+    if (symbol) {
+      filter.symbol = symbol;
+    }
+
+    const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
 
     if (!presets || presets.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "You have not created any presets yet",
+        message: symbol
+          ? `You have not created any presets for this bot version and symbol: ${symbol}`
+          : "You have not created any presets for this bot version yet",
       });
     }
+
+    const presetsWithFavoriteStatus = presets.map((preset) => ({
+      ...preset,
+      isFavorited: userId
+        ? preset.favorites?.map((f) => f.toString()).includes(userId.toString())
+        : false,
+    }));
 
     return res.status(200).json({
       success: true,
       message: "Your presets retrieved successfully",
-      data: presets,
+      data: presetsWithFavoriteStatus,
     });
   } catch (error) {
     console.error("My Presets Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to retrieve your presets",
+      error: error.message,
+    });
+  }
+};
+
+export const toggleFavoritePreset = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { presetId } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: user not found in request",
+      });
+    }
+
+    if (!presetId) {
+      return res.status(400).json({
+        success: false,
+        message: "Preset ID is required",
+      });
+    }
+
+    const preset = await Preset.findById(presetId);
+    if (!preset) {
+      return res.status(404).json({
+        success: false,
+        message: "Preset not found",
+      });
+    }
+
+    let isFavorited;
+
+    if (preset.favorites.includes(userId)) {
+      preset.favorites.pull(userId);
+      isFavorited = false;
+    } else {
+      preset.favorites.push(userId);
+      isFavorited = true;
+    }
+
+    await preset.save();
+
+    return res.status(200).json({
+      success: true,
+      message: isFavorited
+        ? "Preset added to favorites"
+        : "Preset removed from favorites",
+    });
+  } catch (error) {
+    console.error("Toggle Favorite Preset Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to toggle favorite preset",
       error: error.message,
     });
   }

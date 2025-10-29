@@ -51,6 +51,12 @@ const presetSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    favorites: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User", 
+      },
+    ],
   },
   { timestamps: true }
 );

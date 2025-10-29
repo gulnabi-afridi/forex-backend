@@ -8,7 +8,8 @@ import {
   getBots,
   getBotFile,
   communityPresets,
-  myPresets
+  myPresets,
+  toggleFavoritePreset
 } from "../controllers/userBotController.js";
 import {
   getBotPresetData,
@@ -35,5 +36,6 @@ router.put("/preset", singleFileUpload("botFile"), editPreset);
 router.get("/offical-presets", getOfficalPresets);
 router.get("/community-presets", communityPresets);
 router.get("/my-presets", myPresets);
+router.post("/toggle-favorite-preset", toggleFavoritePreset);
 
 export default router;
