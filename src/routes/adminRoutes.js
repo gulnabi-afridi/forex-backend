@@ -23,7 +23,8 @@ import {
   getBotPresetData,
   getBots,
   countPreset,
-  getPresets
+  getPresets,
+  deleteBot,
 } from "../controllers/admin/botController.js";
 import {
   multipleFileUpload,
@@ -56,6 +57,7 @@ router.post(
 );
 router.get("/bot-detail", getBotTitleDesc);
 router.put("/bot-detail", singleFileUpload("botFile"), editBotTitleDesc);
+router.delete("/bot", deleteBot);
 
 router.get("/bot-version", getBotVersionData);
 router.post("/bot-version", singleFileUpload("botFile"), addBotVersion);

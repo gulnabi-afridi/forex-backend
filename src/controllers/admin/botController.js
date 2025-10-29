@@ -183,11 +183,6 @@ export const addBot = async (req, res) => {
         return res.status(201).json({
           success: true,
           message: "Bot created successfully with initial version",
-          data: {
-            botId: newBot._id,
-            versionId: createdVersion._id,
-            versionName: createdVersion.versionName,
-          },
         });
       } catch (uploadError) {
         await Bot.findByIdAndDelete(botId);
@@ -204,6 +199,185 @@ export const addBot = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to add bot",
+      error: error.message,
+    });
+  }
+};
+
+export const getBotTitleDesc = async (req, res) => {
+  try {
+    const { botId } = req.query;
+
+    if (!botId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID is required",
+      });
+    }
+
+    const bot = await Bot.findById(botId).select("title description image");
+
+    if (!bot) {
+      return res.status(404).json({
+        success: false,
+        message: "Bot not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Bot details retrieved successfully",
+      data: {
+        botId: bot._id,
+        title: bot.title,
+        description: bot.description,
+        image: bot.image,
+      },
+    });
+  } catch (error) {
+    console.error("Get Bot Title Description Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve bot details",
+      error: error.message,
+    });
+  }
+};
+
+export const editBotTitleDesc = async (req, res) => {
+  try {
+    const { botId } = req.query;
+    const botImage = req.file;
+
+    if (!botId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID is required",
+      });
+    }
+
+    const bot = await Bot.findById(botId);
+
+    if (!bot) {
+      return res.status(404).json({
+        success: false,
+        message: "Bot not found",
+      });
+    }
+
+    if (botImage) {
+      try {
+        if (bot.image && bot.image.cloudinaryId) {
+          try {
+            await cloudinaryService.deleteFile(bot.image.cloudinaryId);
+          } catch (deleteError) {
+            console.error("Failed to delete old image:", deleteError);
+          }
+        }
+
+        const imageUpload = await cloudinaryService.uploadFile(
+          botImage,
+          botId,
+          "images",
+          false,
+          false
+        );
+
+        if (!imageUpload.success) {
+          return res.status(400).json({
+            success: false,
+            message: imageUpload.message || "Failed to upload bot image",
+          });
+        }
+
+        bot.image = {
+          url: imageUpload.data.url,
+          cloudinaryId: imageUpload.data.public_id,
+          uploadedAt: new Date(imageUpload.data.created_at),
+        };
+      } catch (uploadError) {
+        console.error("Image upload error:", uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Image upload failed",
+          error: uploadError.message,
+        });
+      }
+    }
+
+    if (req.body) {
+      const { title, description } = req.body;
+
+      if (title !== undefined) bot.title = title;
+      if (description !== undefined) bot.description = description;
+    }
+
+    await bot.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Bot details updated successfully",
+    });
+  } catch (error) {
+    console.error("Edit Bot Title Description Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update bot details",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteBot = async (req, res) => {
+  try {
+    const { botId } = req.query;
+
+    if (!botId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID is required",
+      });
+    }
+
+    const bot = await Bot.findById(botId);
+
+    if (!bot) {
+      return res.status(404).json({
+        success: false,
+        message: "Bot not found",
+      });
+    }
+
+    try {
+      const botFolderPath = `${cloudinaryService.baseFolder}/${botId}`;
+
+      try {
+        await cloudinaryService.deleteFolder(botFolderPath);
+      } catch (cloudinaryError) {
+        console.error("Cloudinary folder deletion error:", cloudinaryError);
+      }
+
+      const deletePresetsResult = await Preset.deleteMany({ bot: botId });
+
+      await Bot.findByIdAndDelete(botId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Bot and all associated data deleted successfully",
+      });
+    } catch (deleteError) {
+      console.error("Delete operation error:", deleteError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to delete bot and associated data",
+        error: deleteError.message,
+      });
+    }
+  } catch (error) {
+    console.error("Delete Bot Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete bot",
       error: error.message,
     });
   }
@@ -234,6 +408,17 @@ export const addBotVersion = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Bot not found",
+      });
+    }
+
+    const versionExists = existingBot.versions.some(
+      (v) => v.versionName.toLowerCase() === version.toLowerCase()
+    );
+
+    if (versionExists) {
+      return res.status(400).json({
+        success: false,
+        message: `Version "${version}" already exists for this bot.`,
       });
     }
 
@@ -276,13 +461,6 @@ export const addBotVersion = async (req, res) => {
       return res.status(201).json({
         success: true,
         message: "New version added successfully",
-        data: {
-          botId: existingBot._id,
-          versionId: createdVersion._id,
-          versionName: createdVersion.versionName,
-          file: createdVersion.file,
-          whatsNewHere: createdVersion.whatsNewHere,
-        },
       });
     } catch (uploadError) {
       existingBot.versions.pull(createdVersion._id);
@@ -510,12 +688,6 @@ export const editBotVersion = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Bot version updated successfully",
-      data: {
-        versionId: version._id,
-        versionName: version.versionName,
-        whatsNewHere: version.whatsNewHere,
-        file: version.file,
-      },
     });
   } catch (error) {
     console.error("Edit Bot Version Error:", error);
@@ -663,7 +835,7 @@ export const getPresets = async (req, res) => {
 
 export const addPreset = async (req, res) => {
   try {
-    const { botId, botVersionId } = req.query;
+    const { botId, versionId } = req.query;
 
     const {
       name,
@@ -677,7 +849,7 @@ export const addPreset = async (req, res) => {
 
     const botFile = req.file;
 
-    if (!botId || !botVersionId || !name || !description || !botFile) {
+    if (!botId || !versionId || !name || !description || !botFile) {
       return res.status(400).json({
         success: false,
         message:
@@ -693,7 +865,7 @@ export const addPreset = async (req, res) => {
       });
     }
 
-    const versionExists = bot.versions.id(botVersionId);
+    const versionExists = bot.versions.id(versionId);
     if (!versionExists) {
       return res.status(404).json({
         success: false,
@@ -703,7 +875,7 @@ export const addPreset = async (req, res) => {
 
     const newPreset = new Preset({
       bot: botId,
-      botVersion: botVersionId,
+      botVersion: versionId,
       name,
       description,
       symbol,
@@ -720,7 +892,7 @@ export const addPreset = async (req, res) => {
       const fileUpload = await cloudinaryService.uploadPresetFile(
         botFile,
         botId,
-        botVersionId,
+        versionId,
         presetId
       );
 
@@ -1028,130 +1200,6 @@ export const deletePreset = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to delete preset",
-      error: error.message,
-    });
-  }
-};
-
-export const getBotTitleDesc = async (req, res) => {
-  try {
-    const { botId } = req.query;
-
-    if (!botId) {
-      return res.status(400).json({
-        success: false,
-        message: "Bot ID is required",
-      });
-    }
-
-    const bot = await Bot.findById(botId).select("title description image");
-
-    if (!bot) {
-      return res.status(404).json({
-        success: false,
-        message: "Bot not found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Bot details retrieved successfully",
-      data: {
-        botId: bot._id,
-        title: bot.title,
-        description: bot.description,
-        image: bot.image,
-      },
-    });
-  } catch (error) {
-    console.error("Get Bot Title Description Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to retrieve bot details",
-      error: error.message,
-    });
-  }
-};
-
-export const editBotTitleDesc = async (req, res) => {
-  try {
-    const { botId } = req.query;
-    const botImage = req.file;
-
-    if (!botId) {
-      return res.status(400).json({
-        success: false,
-        message: "Bot ID is required",
-      });
-    }
-
-    const bot = await Bot.findById(botId);
-
-    if (!bot) {
-      return res.status(404).json({
-        success: false,
-        message: "Bot not found",
-      });
-    }
-
-    if (botImage) {
-      try {
-        if (bot.image && bot.image.cloudinaryId) {
-          try {
-            await cloudinaryService.deleteFile(bot.image.cloudinaryId);
-          } catch (deleteError) {
-            console.error("Failed to delete old image:", deleteError);
-          }
-        }
-
-        const imageUpload = await cloudinaryService.uploadFile(
-          botImage,
-          botId,
-          "images",
-          false,
-          false
-        );
-
-        if (!imageUpload.success) {
-          return res.status(400).json({
-            success: false,
-            message: imageUpload.message || "Failed to upload bot image",
-          });
-        }
-
-        bot.image = {
-          url: imageUpload.data.url,
-          cloudinaryId: imageUpload.data.public_id,
-          uploadedAt: new Date(imageUpload.data.created_at),
-        };
-      } catch (uploadError) {
-        console.error("Image upload error:", uploadError);
-        return res.status(500).json({
-          success: false,
-          message: "Image upload failed",
-          error: uploadError.message,
-        });
-      }
-    }
-
-    if (req.body) {
-      const { title, description } = req.body;
-
-      if (title !== undefined) bot.title = title;
-      if (description !== undefined) bot.description = description;
-    }
-
-    await bot.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Bot details updated successfully",
-    });
-  } catch (error) {
-    console.error("Edit Bot Title Description Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update bot details",
       error: error.message,
     });
   }
