@@ -434,3 +434,54 @@ export const toggleFavoritePreset = async (req, res) => {
     });
   }
 };
+
+export const favoritePresets = async (req, res) => {
+  try {
+    const userId =  req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: user not found in request",
+      });
+    }
+
+    const { botId, versionId, symbol } = req.query;
+
+    const filter = {
+      favorites: userId,
+    };
+
+    if (botId) filter.bot = botId;
+    if (versionId) filter.botVersion = versionId;
+    if (symbol) filter.symbol = symbol;
+
+    const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
+
+    if (!presets || presets.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No favorite presets found for this user",
+      });
+    }
+
+    const presetsWithFavoriteStatus = presets.map((preset) => ({
+      ...preset,
+      isFavorited: true, 
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Favorite presets retrieved successfully",
+      count: presetsWithFavoriteStatus.length,
+      data: presetsWithFavoriteStatus,
+    });
+  } catch (error) {
+    console.error("Favorite Presets Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve favorite presets",
+      error: error.message,
+    });
+  }
+};
