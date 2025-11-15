@@ -10,9 +10,11 @@ export const getBots = async (req, res) => {
       .lean();
 
     if (!bots || bots.length === 0) {
-      return res.status(404).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message: "No bots found",
+        count: 0,
+        data: [],
       });
     }
 
@@ -226,18 +228,11 @@ export const getOfficalPresets = async (req, res) => {
       botVersion: versionId,
     };
 
-    if (symbol) filter.symbol = symbol;
+    if (symbol && symbol !== "All symbols") {
+      filter.symbol = symbol;
+    }
 
     const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
-
-    if (!presets || presets.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: symbol
-          ? `No official presets found for this bot version and symbol: ${symbol}`
-          : "No official presets found for this bot version",
-      });
-    }
 
     const presetsWithFavorites = presets.map((preset) => ({
       ...preset,
@@ -247,7 +242,12 @@ export const getOfficalPresets = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Official presets retrieved successfully",
+      message:
+        presetsWithFavorites.length > 0
+          ? "Official presets retrieved successfully"
+          : symbol && symbol !== "All symbols"
+          ? `No official presets found for this bot version and symbol: ${symbol}`
+          : "No official presets found for this bot version",
       count: presetsWithFavorites.length,
       data: presetsWithFavorites,
     });
@@ -277,22 +277,14 @@ export const communityPresets = async (req, res) => {
       user: { $ne: null },
       bot: botId,
       botVersion: versionId,
+      isPublishToCommunity: true,
     };
 
-    if (symbol) {
+    if (symbol && symbol !== "All symbols") {
       filter.symbol = symbol;
     }
 
     const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
-
-    if (!presets || presets.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: symbol
-          ? `No community presets found for this bot version and symbol: ${symbol}`
-          : "No community presets found for this bot version",
-      });
-    }
 
     const presetsWithFavorites = presets.map((preset) => ({
       ...preset,
@@ -304,7 +296,12 @@ export const communityPresets = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Community presets retrieved successfully",
+      message:
+        presetsWithFavorites.length > 0
+          ? "Community presets retrieved successfully"
+          : symbol && symbol !== "All symbols"
+          ? `No community presets found for this bot version and symbol: ${symbol}`
+          : "No community presets found for this bot version",
       count: presetsWithFavorites.length,
       data: presetsWithFavorites,
     });
@@ -343,31 +340,29 @@ export const myPresets = async (req, res) => {
       botVersion: versionId,
     };
 
-    if (symbol) {
+    if (symbol && symbol !== "All symbols") {
       filter.symbol = symbol;
     }
 
     const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
 
-    if (!presets || presets.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: symbol
-          ? `You have not created any presets for this bot version and symbol: ${symbol}`
-          : "You have not created any presets for this bot version yet",
-      });
-    }
-
     const presetsWithFavoriteStatus = presets.map((preset) => ({
       ...preset,
-      isFavorited: userId
-        ? preset.favorites?.map((f) => f.toString()).includes(userId.toString())
-        : false,
+      favoriteCount: preset.favorites?.length || 0,
+      isFavorited: preset.favorites
+        ?.map((f) => f.toString())
+        .includes(userId.toString()),
     }));
 
     return res.status(200).json({
       success: true,
-      message: "Your presets retrieved successfully",
+      message:
+        presetsWithFavoriteStatus.length > 0
+          ? "Your presets retrieved successfully"
+          : symbol && symbol !== "All symbols"
+          ? `You have not created any presets for this bot version and symbol: ${symbol}`
+          : "You have not created any presets for this bot version yet",
+      count: presetsWithFavoriteStatus.length,
       data: presetsWithFavoriteStatus,
     });
   } catch (error) {
@@ -435,9 +430,50 @@ export const toggleFavoritePreset = async (req, res) => {
   }
 };
 
+export const getBotVersions = async (req, res) => {
+  try {
+    const { botId } = req.query;
+
+    if (!botId) {
+      return res.status(400).json({
+        success: false,
+        message: "Bot ID is required",
+      });
+    }
+
+    const bot = await Bot.findById(botId).lean();
+
+    if (!bot) {
+      return res.status(404).json({
+        success: false,
+        message: "Bot not found",
+      });
+    }
+
+    const versions = bot.versions.map((v) => ({
+      id: v._id,
+      versionName: v.versionName,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      message: "Bot versions retrieved successfully",
+      data: versions,
+    });
+  } catch (error) {
+    console.error("Get Bot Versions Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve bot versions",
+      error: error.message,
+    });
+  }
+};
+
 export const favoritePresets = async (req, res) => {
   try {
-    const userId =  req.user?.id;
+    const userId = req.user?.id;
+    const { botId, versionId, symbol } = req.query;
 
     if (!userId) {
       return res.status(401).json({
@@ -446,35 +482,49 @@ export const favoritePresets = async (req, res) => {
       });
     }
 
-    const { botId, versionId, symbol } = req.query;
-
     const filter = {
       favorites: userId,
     };
 
     if (botId) filter.bot = botId;
     if (versionId) filter.botVersion = versionId;
-    if (symbol) filter.symbol = symbol;
+    if (symbol && symbol !== "All symbols") filter.symbol = symbol;
 
     const presets = await Preset.find(filter).sort({ createdAt: -1 }).lean();
 
     if (!presets || presets.length === 0) {
-      return res.status(404).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message: "No favorite presets found for this user",
+        count: 0,
+        data: [],
       });
     }
 
-    const presetsWithFavoriteStatus = presets.map((preset) => ({
-      ...preset,
-      isFavorited: true, 
-    }));
+    const presetsWithMeta = presets.map((preset) => {
+      const isFavorited = preset.favorites
+        ?.map((f) => f.toString())
+        .includes(userId.toString());
+      const favoriteCount = preset.favorites?.length || 0;
+
+      let type = "community";
+      if (!preset.user) type = "official";
+      else if (preset.user?.toString() === userId.toString()) type = "my";
+      else type = "community";
+
+      return {
+        ...preset,
+        isFavorited,
+        favoriteCount,
+        type,
+      };
+    });
 
     return res.status(200).json({
       success: true,
       message: "Favorite presets retrieved successfully",
-      count: presetsWithFavoriteStatus.length,
-      data: presetsWithFavoriteStatus,
+      count: presetsWithMeta.length,
+      data: presetsWithMeta,
     });
   } catch (error) {
     console.error("Favorite Presets Error:", error);

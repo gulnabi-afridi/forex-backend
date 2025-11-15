@@ -11,6 +11,7 @@ import {
   myPresets,
   toggleFavoritePreset,
   favoritePresets,
+  getBotVersions
 } from "../controllers/userBotController.js";
 import {
   getBotPresetData,
@@ -36,6 +37,7 @@ router.put("/preset", singleFileUpload("botFile"), editPreset);
 
 router.get("/offical-presets", getOfficalPresets);
 router.get("/community-presets", communityPresets);
+router.get('/bot-versions',getBotVersions);
 router.get("/my-presets", myPresets);
 router.post("/toggle-favorite-preset", toggleFavoritePreset);
 router.get("/favorite-presets", favoritePresets);

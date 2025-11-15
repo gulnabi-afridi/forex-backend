@@ -13,6 +13,10 @@ const extensionToMime = {
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   ".json": "application/json",
   ".txt": "text/plain",
+
+  ".ex4": "application/octet-stream",
+  ".ex5": "application/octet-stream",
+  ".set": "application/octet-stream",
 };
 
 export const singleFileUpload = (fieldName = "botFile") => {

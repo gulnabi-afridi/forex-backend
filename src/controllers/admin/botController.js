@@ -5,13 +5,15 @@ import Preset from "../../models/Preset.js";
 export const getBots = async (req, res) => {
   try {
     const bots = await Bot.find()
-      .select("title description image createdAt updatedAt")
+      .select("title description image versions")
       .sort({ createdAt: -1 });
 
     if (!bots || bots.length === 0) {
-      return res.status(404).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message: "No bots found",
+        count: 0,
+        data: [],
       });
     }
 
@@ -519,7 +521,6 @@ export const getBotVersionData = async (req, res) => {
         versionName: version.versionName,
         whatsNewHere: version.whatsNewHere,
         file: version.file,
-        createdAt: version.createdAt,
       },
     });
   } catch (error) {
@@ -812,9 +813,10 @@ export const getPresets = async (req, res) => {
       .sort({ createdAt: -1 });
 
     if (!presets || presets.length === 0) {
-      return res.status(404).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message: "No presets found for this version",
+        data: [],
       });
     }
 
@@ -938,6 +940,7 @@ export const addPreset = async (req, res) => {
 
 export const getBotPresetData = async (req, res) => {
   try {
+    const userId = req.user?.id;
     const { presetId } = req.query;
 
     if (!presetId) {
@@ -947,7 +950,7 @@ export const getBotPresetData = async (req, res) => {
       });
     }
 
-    const preset = await Preset.findById(presetId);
+    const preset = await Preset.findById(presetId).lean();
 
     if (!preset) {
       return res.status(404).json({
@@ -955,6 +958,12 @@ export const getBotPresetData = async (req, res) => {
         message: "Preset not found",
       });
     }
+
+    let type = "community";
+    if (!preset.user) type = "official";
+    else if (userId && preset.user?._id?.toString() === userId.toString())
+      type = "my";
+    else type = "community";
 
     return res.status(200).json({
       success: true,
@@ -969,6 +978,7 @@ export const getBotPresetData = async (req, res) => {
         broker: preset.broker,
         isPublishToCommunity: preset.isPublishToCommunity,
         presetFile: preset.presetFile,
+        type,
       },
     });
   } catch (error) {
