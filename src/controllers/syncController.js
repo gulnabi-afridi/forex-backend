@@ -4,7 +4,7 @@ import TradingAccount from "../models/TradingAccount.js";
 
 export const addUserFromBot = async (req, res) => {
   try {
-    const { licenseKey, accountNumber, serverName, platform } = req.body;
+    const { licenseKey, accountNumber, serverName } = req.body;
 
     console.log("🔑 Received licenseKey:", licenseKey);
 
@@ -25,7 +25,7 @@ export const addUserFromBot = async (req, res) => {
       [licenseKey]
     );
 
-    const licenseRecord = result?.[0]; // single record
+    const licenseRecord = result?.[0]; 
 
     if (!licenseRecord) {
       return res.status(404).json({
@@ -64,7 +64,7 @@ export const addUserFromBot = async (req, res) => {
       userId: user._id,
       accountNumber,
       serverName,
-      platform: platform || "MT5",
+      platform: "MT5",
       isLicenseTrue: true,
       password: null,
       accountSummary: null,

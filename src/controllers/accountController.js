@@ -199,6 +199,8 @@ export const getUserAccounts = async (req, res) => {
     const userId = req.user.id;
     const accounts = await AccountValidationService.findUserAccounts(userId);
 
+    console.log(accounts);
+
     // Check and update connection status for each account
     const updatedAccounts = await Promise.allSettled(
       accounts.map(async (account) => {
