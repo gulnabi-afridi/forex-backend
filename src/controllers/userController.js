@@ -40,7 +40,7 @@ export const getUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await User.findById(userId).select("name email active");
+    const user = await User.findById(userId).select("name email active expertsEnabled");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
