@@ -11,7 +11,16 @@ export const addAccount = async (req, res) => {
     const { accountNumber, serverName, platform, password } = req.body;
     const userId = req.user.id;
 
-    AccountValidationService.validateAccountData(req.body);
+    // Validate account data - return 400 if validation fails
+    try {
+      AccountValidationService.validateAccountData(req.body);
+    } catch (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError.message || "Invalid account data",
+        error: validationError.message,
+      });
+    }
 
     const existingAccount = await TradingAccount.findOne({
       userId,
@@ -45,6 +54,7 @@ export const addAccount = async (req, res) => {
     if (!connectionData.success) {
       return res.status(400).json({
         success: false,
+        message: connectionData.error || "Unable to connect to MT5 server",
         error: connectionData.error || "Unable to connect to MT5 server",
       });
     }
