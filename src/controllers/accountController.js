@@ -405,7 +405,7 @@ export const deleteAccount = async (req, res) => {
     const { mtapiId } = req.params;
     const userId = req.user.id;
 
-    // Find the account
+    // Find the account by mtapiId
     const account = await AccountValidationService.findUserAccount(
       mtapiId,
       userId,
@@ -419,8 +419,10 @@ export const deleteAccount = async (req, res) => {
       });
     }
 
-    // Disconnect from MTAPI
-    await AccountConnectionService.disconnectAccount(account);
+    // Disconnect from MTAPI (only if connected)
+    if (account.mtapiId) {
+      await AccountConnectionService.disconnectAccount(account);
+    }
 
     // Delete order history
     await OrderHistory.deleteOne({ accountId: account._id });
@@ -434,6 +436,49 @@ export const deleteAccount = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Delete Account Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete account",
+    });
+  }
+};
+
+// DELETE ACCOUNT BY ID (for accounts without mtapiId)
+export const deleteAccountById = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    const userId = req.user.id;
+
+    // Find the account by _id
+    const account = await TradingAccount.findOne({
+      _id: accountId,
+      userId,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    // Disconnect from MTAPI (only if connected)
+    if (account.mtapiId) {
+      await AccountConnectionService.disconnectAccount(account);
+    }
+
+    // Delete order history
+    await OrderHistory.deleteOne({ accountId: account._id });
+
+    // Delete the account completely
+    await TradingAccount.deleteOne({ _id: account._id });
+
+    res.status(200).json({
+      success: true,
+      message: "Account and its order history deleted successfully",
+    });
+  } catch (error) {
+    console.error("❌ Delete Account By ID Error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to delete account",

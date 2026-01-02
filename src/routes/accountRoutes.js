@@ -4,6 +4,7 @@ import {
   getUserAccounts,
   getAccountById,
   deleteAccount,
+  deleteAccountById,
   checkConnectionStatus,
   receiveBotAccountData,
 } from "../controllers/accountController.js";
@@ -27,6 +28,7 @@ router.post("/bot/account", receiveBotAccountData);
 router.get("/", getUserAccounts);
 router.get("/:mtapiId", getAccountById);
 router.put("/:mtapiId/status", checkConnectionStatus);
+router.delete("/by-id/:accountId", deleteAccountById);
 router.delete("/:mtapiId", deleteAccount);
 
 // Trading Data Routes
