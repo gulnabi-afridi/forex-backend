@@ -11,16 +11,7 @@ export const addAccount = async (req, res) => {
     const { accountNumber, serverName, platform, password } = req.body;
     const userId = req.user.id;
 
-    // Validate account data - return 400 if validation fails
-    try {
-      AccountValidationService.validateAccountData(req.body);
-    } catch (validationError) {
-      return res.status(400).json({
-        success: false,
-        message: validationError.message || "Invalid account data",
-        error: validationError.message,
-      });
-    }
+    AccountValidationService.validateAccountData(req.body);
 
     const existingAccount = await TradingAccount.findOne({
       userId,
@@ -54,7 +45,6 @@ export const addAccount = async (req, res) => {
     if (!connectionData.success) {
       return res.status(400).json({
         success: false,
-        message: connectionData.error || "Unable to connect to MT5 server",
         error: connectionData.error || "Unable to connect to MT5 server",
       });
     }
@@ -415,37 +405,12 @@ export const deleteAccount = async (req, res) => {
     const { mtapiId } = req.params;
     const userId = req.user.id;
 
-    let account;
-
-    // Check if the parameter is a valid MongoDB ObjectId (for non-connected accounts using _id)
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(mtapiId);
-
-    if (isValidObjectId) {
-      // Try to find by _id first (for non-connected accounts)
-      account = await TradingAccount.findOne({
-        _id: mtapiId,
-        userId,
-        isActive: true,
-      });
-    }
-
-    // If not found by _id, try to find by mtapiId (for connected accounts)
-    if (!account && mtapiId && mtapiId !== 'null' && mtapiId !== 'undefined') {
-      account = await AccountValidationService.findUserAccount(
-        mtapiId,
-        userId,
-        true
-      );
-    }
-
-    // Final fallback: try _id again if mtapiId lookup failed
-    if (!account && !isValidObjectId) {
-      account = await TradingAccount.findOne({
-        _id: mtapiId,
-        userId,
-        isActive: true,
-      });
-    }
+    // Find the account
+    const account = await AccountValidationService.findUserAccount(
+      mtapiId,
+      userId,
+      true
+    );
 
     if (!account) {
       return res.status(404).json({
@@ -454,10 +419,8 @@ export const deleteAccount = async (req, res) => {
       });
     }
 
-    // Disconnect from MTAPI if connected
-    if (account.mtapiId) {
-      await AccountConnectionService.disconnectAccount(account);
-    }
+    // Disconnect from MTAPI
+    await AccountConnectionService.disconnectAccount(account);
 
     // Delete order history
     await OrderHistory.deleteOne({ accountId: account._id });
@@ -474,7 +437,6 @@ export const deleteAccount = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete account",
-      error: error.message,
     });
   }
 };

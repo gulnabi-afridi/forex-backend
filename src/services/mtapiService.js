@@ -81,26 +81,9 @@ export const mtapiService = {
         "MTAPI Connect Error:",
         error.response?.data || error.message
       );
-      
-      // Extract error message
-      let errorMessage = error.response?.data?.message || error.message;
-      
-      // Provide user-friendly messages for common errors
-      if (errorMessage && typeof errorMessage === 'string') {
-        if (errorMessage.includes('Connection reset by peer') || errorMessage.includes('Disconnected')) {
-          errorMessage = "Connection to trading server was reset. This could be due to:\n• Invalid account credentials\n• Server temporarily unavailable\n• Network connectivity issues\n\nPlease verify your account number, password, and server name, then try again.";
-        } else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
-          errorMessage = "Connection timeout. The trading server did not respond in time. Please check your internet connection and try again.";
-        } else if (errorMessage.includes('ECONNREFUSED') || errorMessage.includes('refused')) {
-          errorMessage = "Connection refused by trading server. Please verify the server name is correct.";
-        } else if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('not found')) {
-          errorMessage = "Server not found. Please verify the server name is correct.";
-        }
-      }
-      
       return {
         success: false,
-        error: errorMessage || "Unable to connect to trading server",
+        error: error.response?.data?.message || error.message,
         status: error.response?.status,
         statusText: error.response?.statusText,
       };

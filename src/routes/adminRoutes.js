@@ -6,7 +6,7 @@ import { getUserStats } from "../controllers/admin/adminController.js";
 import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
-import { changeUserActiveStatus, toggleUserExpertsAccess } from "../controllers/admin/adminController.js";
+import { changeUserActiveStatus } from "../controllers/admin/adminController.js";
 import {
   addBot,
   addBotVersion,
@@ -43,7 +43,6 @@ router.get("/user-stats", getUserStats);
 router.get("/all-users", getAllUser);
 router.get("/search-users", searchUsers);
 router.patch("/users/:id", changeUserActiveStatus);
-router.patch("/users/:id/experts", toggleUserExpertsAccess);
 router.delete("/delete-user/:id", deleteUser);
 
 // bots
