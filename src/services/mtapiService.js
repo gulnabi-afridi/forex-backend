@@ -5,8 +5,8 @@ const createMtapiClient = (platform) =>
   axios.create({
     baseURL:
       platform === "MT5"
-        ? "https://mt5full3.mtapi.io"
-        : "https://mt4full3.mtapi.io",
+        ? "http://129.212.228.10:5015"
+        : "http://129.212.228.10:5014",
     timeout: 30000,
     headers: {
       ApiKey: process.env.MTAPI_TOKEN,
