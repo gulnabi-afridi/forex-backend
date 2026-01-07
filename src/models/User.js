@@ -18,6 +18,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  experts: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 export default mongoose.model("User", userSchema);

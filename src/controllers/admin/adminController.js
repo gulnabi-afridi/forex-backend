@@ -92,6 +92,40 @@ export const changeUserActiveStatus = async (req, res) => {
   }
 };
 
+export const changeUserExpertsStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { experts } = req.body;
+
+    if (typeof experts !== "boolean") {
+      return res
+        .status(400)
+        .json({ message: "Experts status must be true or false" });
+    }
+
+    // update user
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { experts },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: `User experts status updated to ${experts ? "Expert" : "Non-Expert"}`,
+      user: updatedUser,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error while updating user experts status",
+      error: err.message,
+    });
+  }
+};
+
 export const getAllUser = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -101,7 +135,7 @@ export const getAllUser = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // fetch paginated users
-    const users = await User.find().skip(skip).limit(limit);
+    const users = await User.find().skip(skip).limit(limit).select("-password");
 
     // get total count
     const totalUsers = await User.countDocuments();

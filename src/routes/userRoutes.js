@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../middlewares/auth.js";
+import { expertsMiddleware } from "../middlewares/expertsMiddleware.js";
 import { changePassword } from "../controllers/userController.js";
 import { getUserProfile } from "../controllers/userController.js";
 import {
@@ -27,19 +28,21 @@ router.use(authMiddleware);
 
 router.post("/change-password", changePassword);
 router.get("/me", getUserProfile);
-router.get("/bots", getBots);
-router.get("/bot-file", getBotFile);
 
-router.post("/add-preset", singleFileUpload("botFile"), addPreset);
-router.get("/preset", getBotPresetData);
-router.delete("/preset-file", deletePresetFile);
-router.put("/preset", singleFileUpload("botFile"), editPreset);
+// Experts routes - require experts access
+router.get("/bots", expertsMiddleware, getBots);
+router.get("/bot-file", expertsMiddleware, getBotFile);
 
-router.get("/offical-presets", getOfficalPresets);
-router.get("/community-presets", communityPresets);
-router.get('/bot-versions',getBotVersions);
-router.get("/my-presets", myPresets);
-router.post("/toggle-favorite-preset", toggleFavoritePreset);
-router.get("/favorite-presets", favoritePresets);
+router.post("/add-preset", expertsMiddleware, singleFileUpload("botFile"), addPreset);
+router.get("/preset", expertsMiddleware, getBotPresetData);
+router.delete("/preset-file", expertsMiddleware, deletePresetFile);
+router.put("/preset", expertsMiddleware, singleFileUpload("botFile"), editPreset);
+
+router.get("/offical-presets", expertsMiddleware, getOfficalPresets);
+router.get("/community-presets", expertsMiddleware, communityPresets);
+router.get('/bot-versions', expertsMiddleware, getBotVersions);
+router.get("/my-presets", expertsMiddleware, myPresets);
+router.post("/toggle-favorite-preset", expertsMiddleware, toggleFavoritePreset);
+router.get("/favorite-presets", expertsMiddleware, favoritePresets);
 
 export default router;
