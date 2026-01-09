@@ -546,3 +546,56 @@ export const checkConnectionStatus = async (req, res) => {
     });
   }
 };
+
+// UPDATE ACCOUNT USERNAME
+export const updateAccountUsername = async (req, res) => {
+  try {
+    const { accountId } = req.params;
+    const { userName } = req.body;
+    const userId = req.user.id;
+
+    if (!userName || userName.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Username is required",
+      });
+    }
+
+    // Find the account by _id and userId
+    const account = await TradingAccount.findOne({
+      _id: accountId,
+      userId,
+    });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found",
+      });
+    }
+
+    // Update the userName in accountSummary
+    account.accountSummary = {
+      ...account.accountSummary,
+      userName: userName.trim(),
+    };
+
+    await account.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Account username updated successfully",
+      data: {
+        id: account._id,
+        userName: account.accountSummary.userName,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Update Account Username Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update account username",
+      error: error.message,
+    });
+  }
+};
