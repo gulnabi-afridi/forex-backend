@@ -59,6 +59,12 @@ const tradingAccountSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Custom override name for account display
+    overrideName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   {
     timestamps: true,
