@@ -547,17 +547,17 @@ export const checkConnectionStatus = async (req, res) => {
   }
 };
 
-// UPDATE ACCOUNT USERNAME
+// UPDATE ACCOUNT OVERRIDE NAME
 export const updateAccountUsername = async (req, res) => {
   try {
     const { accountId } = req.params;
-    const { userName } = req.body;
+    const { overrideName } = req.body;
     const userId = req.user.id;
 
-    if (!userName || userName.trim() === "") {
+    if (!overrideName || overrideName.trim() === "") {
       return res.status(400).json({
         success: false,
-        message: "Username is required",
+        message: "Override name is required",
       });
     }
 
@@ -574,27 +574,24 @@ export const updateAccountUsername = async (req, res) => {
       });
     }
 
-    // Update the userName in accountSummary
-    account.accountSummary = {
-      ...account.accountSummary,
-      userName: userName.trim(),
-    };
-
+    // Update the overrideName field
+    account.overrideName = overrideName.trim();
     await account.save();
 
     res.status(200).json({
       success: true,
-      message: "Account username updated successfully",
+      message: "Account name updated successfully",
       data: {
         id: account._id,
-        userName: account.accountSummary.userName,
+        overrideName: account.overrideName,
+        displayName: account.overrideName || account.accountSummary?.userName || "Account",
       },
     });
   } catch (error) {
-    console.error("❌ Update Account Username Error:", error);
+    console.error("❌ Update Account Override Name Error:", error);
     res.status(500).json({
       success: false,
-      message: "Failed to update account username",
+      message: "Failed to update account name",
       error: error.message,
     });
   }
