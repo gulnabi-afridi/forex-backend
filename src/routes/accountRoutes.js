@@ -7,6 +7,7 @@ import {
   deleteAccountById,
   checkConnectionStatus,
   receiveBotAccountData,
+  updateAccountUsername,
 } from "../controllers/accountController.js";
 
 import {
@@ -28,6 +29,7 @@ router.post("/bot/account", receiveBotAccountData);
 router.get("/", getUserAccounts);
 router.get("/:mtapiId", getAccountById);
 router.put("/:mtapiId/status", checkConnectionStatus);
+router.put("/by-id/:accountId/username", updateAccountUsername);
 router.delete("/by-id/:accountId", deleteAccountById);
 router.delete("/:mtapiId", deleteAccount);
 
