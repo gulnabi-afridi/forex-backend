@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
-    "add-account": "node add-account.js"
+    "add-account": "node add-account.js",
+    "seed-servers": "node seed-forex-servers.js"
   },
   "author": "",
   "license": "ISC",
