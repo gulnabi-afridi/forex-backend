@@ -6,7 +6,7 @@ import { getUserStats } from "../controllers/admin/adminController.js";
 import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
-import { changeUserActiveStatus, changeUserExpertsStatus } from "../controllers/admin/adminController.js";
+import { changeUserActiveStatus, changeUserExpertsStatus, impersonateUser } from "../controllers/admin/adminController.js";
 import { addServer } from "../controllers/serverController.js";
 import {
   addBot,
@@ -46,6 +46,7 @@ router.get("/search-users", searchUsers);
 router.patch("/users/:id", changeUserActiveStatus);
 router.patch("/users/:id/experts", changeUserExpertsStatus);
 router.delete("/delete-user/:id", deleteUser);
+router.post("/impersonate/:userId", impersonateUser);
 
 // bots
 router.get("/bots", getBots);
