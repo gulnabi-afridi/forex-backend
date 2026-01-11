@@ -1,5 +1,6 @@
 import User from "../../models/User.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const addNewUser = async (req, res) => {
   try {
@@ -217,6 +218,48 @@ export const deleteUser = async (req, res) => {
   } catch (err) {
     return res.status(500).json({
       message: "Server error in deleting the user",
+      error: err.message,
+    });
+  }
+};
+
+export const impersonateUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find the user
+    const user = await User.findById(userId).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if user is active
+    if (!user.active) {
+      return res.status(403).json({
+        message: "Cannot impersonate inactive user",
+      });
+    }
+
+    // Generate user token (same format as login)
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: "2d" }
+    );
+
+    res.json({
+      message: "User token generated successfully",
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Server error in impersonating user",
       error: err.message,
     });
   }
