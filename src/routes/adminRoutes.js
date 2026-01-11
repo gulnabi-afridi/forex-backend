@@ -7,6 +7,7 @@ import { getAllUser } from "../controllers/admin/adminController.js";
 import { searchUsers } from "../controllers/admin/adminController.js";
 import { deleteUser } from "../controllers/admin/adminController.js";
 import { changeUserActiveStatus, changeUserExpertsStatus } from "../controllers/admin/adminController.js";
+import { addServer } from "../controllers/serverController.js";
 import {
   addBot,
   addBotVersion,
@@ -73,5 +74,8 @@ router.post("/preset", singleFileUpload("botFile"), addPreset);
 router.put("/preset", singleFileUpload("botFile"), editPreset);
 router.delete("/preset-file", deletePresetFile);
 router.delete("/preset", deletePreset);
+
+// servers
+router.post("/add-server", addServer);
 
 export default router;
