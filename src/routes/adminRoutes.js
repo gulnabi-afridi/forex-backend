@@ -34,7 +34,9 @@ import {
 
 const router = express.Router();
 
-router.get("/", () => console.log("Admin routes working...."));
+router.get("/", (req, res) => {
+  res.json({ message: "Admin routes working...." });
+});
 router.post("/", loginAdmin);
 
 router.use(adminAuthMiddleware);
