@@ -10,7 +10,13 @@ import serverRoutes from "./routes/serverRoutes.js";
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false 
+};
+
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
